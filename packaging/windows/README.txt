@@ -11,7 +11,7 @@ design inputs cross between them, one way.
 
 Running it
 ----------
-Double-click RocketSuite.bat.
+Double-click RocketSuite.vbs. This starts the app without opening a command window.
 
 Nothing needs to be installed: the Java runtime and Python with the RocketPy
 stack are inside this folder. Nothing is written outside it except the usual
@@ -22,7 +22,8 @@ the flight engine, and the first "Convert design" loads the motor database.
 
 Contents
 --------
-  RocketSuite.bat        launcher
+  RocketSuite.vbs        windowless launcher
+  RocketSuite.bat        command-line launcher for troubleshooting
   runtime\jre            Java 17 runtime (linked, not a JDK)
   runtime\python         Python 3.12 runtime
   lib\python             RocketPy, RocketSerializer, numpy, scipy, matplotlib, ...
