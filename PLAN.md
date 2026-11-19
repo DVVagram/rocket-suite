@@ -127,7 +127,8 @@ custom plotting library, FreeCAD integration.
 | --- | --- | --- |
 | S0 | **done** | `swing-24.12-all.jar` (83 MB) builds from `release-24.12` (133b558) with Gradle 8.12.1 + JDK 17; the window opens in 11.5 s and the JVM settles at 542–677 MB |
 | S1 | **done** | `RocketPyTabTest` passes: 4 tabs, the 4th is `RocketPyPanel`, OpenRocket's three tabs unchanged; the rebuilt app still launches (18.7 s cold) |
-| S2 | next | sidecar skeleton |
+| S2 | **done** | sidecar protocol (7 pytest cases) and `SidecarClient` (5 JUnit cases, 0 skipped) pass against the real Python process, including a killed-process case that must raise rather than hang; the app still builds and launches (18.7 s, 597 MB) |
+| S3 | next | RocketSerializer conversion of the open document |
 
 Build and run (from the repository root, JDK 17 in `tools/`):
 

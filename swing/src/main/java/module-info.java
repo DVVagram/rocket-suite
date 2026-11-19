@@ -27,6 +27,7 @@ open module info.openrocket.swing {
 	requires ch.qos.logback.core;
 	requires ch.qos.logback.classic;
 	requires jakarta.inject;
+	requires org.glassfish.jakarta.json;
 	requires com.formdev.flatlaf;
 	requires com.formdev.flatlaf.extras;
 	requires com.formdev.flatlaf.intellijthemes;

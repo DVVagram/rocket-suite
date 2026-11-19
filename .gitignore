@@ -104,3 +104,7 @@ docs/build
 .venv/
 tools/
 .integration-src/
+
+# Python bytecode (sidecar tests)
+__pycache__/
+*.pyc
