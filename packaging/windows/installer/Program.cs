@@ -12,20 +12,20 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Windows.Forms;
 
 internal static class Program
 {
     private static int Main()
     {
-        Console.Title = "Rocket Suite Setup";
         string self = Process.GetCurrentProcess().MainModule.FileName;
         long total = new FileInfo(self).Length;
         long payloadStart = Footprint(self, total);
 
         if (payloadStart <= 0 || payloadStart >= total - 8)
         {
-            Console.Error.WriteLine("This file is not a complete Rocket Suite installer.");
-            return Pause(2);
+            MessageBox.Show("This file is not a complete Rocket Suite installer.", "Rocket Suite Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return 2;
         }
 
         string tempRoot = Path.Combine(
@@ -35,7 +35,6 @@ internal static class Program
         try
         {
             string zipPath = Path.Combine(tempRoot, "payload.zip");
-            Console.WriteLine("Unpacking Rocket Suite ...");
             ExtractPayload(self, zipPath, payloadStart, total - 8);
 
             string tree = Path.Combine(tempRoot, "tree");
@@ -49,13 +48,15 @@ internal static class Program
             string setup = Path.Combine(tree, "setup.cmd");
             if (!File.Exists(setup))
             {
-                Console.Error.WriteLine("The payload has no setup.cmd; the download is damaged.");
-                return Pause(3);
+                MessageBox.Show("The download is damaged: the installer payload is incomplete.", "Rocket Suite Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return 3;
             }
 
             var start = new ProcessStartInfo("cmd.exe", "/c \"" + setup + "\"")
             {
                 UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = tree
             };
             using (Process setupProcess = Process.Start(start))
@@ -63,6 +64,11 @@ internal static class Program
                 setupProcess.WaitForExit();
                 return setupProcess.ExitCode;
             }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Rocket Suite could not be installed.\r\n\r\n" + ex.Message, "Rocket Suite Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return 4;
         }
         finally
         {
@@ -104,10 +110,4 @@ internal static class Program
         }
     }
 
-    private static int Pause(int code)
-    {
-        Console.Error.WriteLine("Press Enter to close.");
-        Console.ReadLine();
-        return code;
-    }
 }
