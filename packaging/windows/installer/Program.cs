@@ -62,6 +62,12 @@ internal static class Program
             using (Process setupProcess = Process.Start(start))
             {
                 setupProcess.WaitForExit();
+                if (setupProcess.ExitCode != 0)
+                {
+                    MessageBox.Show("Rocket Suite setup did not complete.\r\n\r\nExit code: "
+                            + setupProcess.ExitCode, "Rocket Suite Setup",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
                 return setupProcess.ExitCode;
             }
         }
