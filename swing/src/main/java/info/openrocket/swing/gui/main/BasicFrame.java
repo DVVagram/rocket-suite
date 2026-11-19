@@ -110,6 +110,7 @@ import info.openrocket.swing.gui.util.DummyFrameMenuOSX;
 import info.openrocket.swing.gui.util.FileHelper;
 import info.openrocket.swing.gui.util.GUIUtil;
 import info.openrocket.swing.gui.util.Icons;
+import info.openrocket.swing.gui.rocketpy.RocketPyPanel;
 import info.openrocket.swing.gui.util.OpenFileWorker;
 import info.openrocket.swing.gui.util.SaveFileWorker;
 import info.openrocket.swing.gui.util.SwingPreferences;
@@ -173,6 +174,7 @@ public class BasicFrame extends JFrame {
 
 	private final DesignPanel designPanel;
 	private final FlightConfigurationPanel flightConfigurationPanel;
+	private final RocketPyPanel rocketPyPanel;
 	private final SimulationPanel simulationPanel;
 
 	public static BasicFrame lastFrameInstance = null;		// Latest BasicFrame that was created
@@ -221,10 +223,13 @@ public class BasicFrame extends JFrame {
 
 		designPanel = new DesignPanel(this, document, tree);
 		flightConfigurationPanel = new FlightConfigurationPanel(this, document);
+		rocketPyPanel = new RocketPyPanel(document);
 		tabbedPane = new JTabbedPane();
 		tabbedPane.addTab(trans.get("BasicFrame.tab.Rocketdesign"), null, designPanel);
 		tabbedPane.addTab(trans.get("BasicFrame.tab.Flightconfig"), null, flightConfigurationPanel);
 		tabbedPane.addTab(trans.get("BasicFrame.tab.Flightsim"), null, simulationPanel);
+		// Flight through RocketPy, alongside OpenRocket's own simulation tab.
+		tabbedPane.addTab(trans.get("BasicFrame.tab.RocketPy"), null, rocketPyPanel);
 
 		//	Add change listener to catch when the tabs are changed.  This is to run simulations
 		//	automatically when the simulation tab is selected.

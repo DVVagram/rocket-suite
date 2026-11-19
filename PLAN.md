@@ -121,6 +121,26 @@ big-bang change. "Verified" means observed output, not intent.
 Deliberately **not** built: a new designer, a web shell, a custom 3-D viewer, a
 custom plotting library, FreeCAD integration.
 
+### Progress
+
+| Stage | State | Evidence |
+| --- | --- | --- |
+| S0 | **done** | `swing-24.12-all.jar` (83 MB) builds from `release-24.12` (133b558) with Gradle 8.12.1 + JDK 17; the window opens in 11.5 s and the JVM settles at 542–677 MB |
+| S1 | **done** | `RocketPyTabTest` passes: 4 tabs, the 4th is `RocketPyPanel`, OpenRocket's three tabs unchanged; the rebuilt app still launches (18.7 s cold) |
+| S2 | next | sidecar skeleton |
+
+Build and run (from the repository root, JDK 17 in `tools/`):
+
+```bash
+./gradlew :swing:shadowJar          # produces swing/build/libs/swing-24.12-all.jar
+java -cp swing/build/libs/swing-24.12-all.jar info.openrocket.swing.startup.OpenRocket
+./gradlew :swing:test --tests "info.openrocket.swing.gui.main.RocketPyTabTest"
+```
+
+The component/motor database is the upstream submodule
+`core/resources-src/datafiles/openrocket-database`; without it the app starts but
+has no motors or presets.
+
 ---
 
 ## 4. Risks
