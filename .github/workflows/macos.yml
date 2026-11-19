@@ -3,11 +3,9 @@ name: macOS app
 # Builds RocketSuite.app and RocketSuite.dmg on a real Mac, so a Mac user gets the
 # same one-download install as Windows instead of a script to run.
 #
-# macos-15 is the runner this account can actually get: GitHub's arm64 macOS
-# runners need a Team plan, and macos-13 (Intel) sits in the queue for hours.
-# The image is therefore x86_64, which runs natively on Intel and under Rosetta on
-# Apple Silicon. packaging/macos/build-app.sh builds an arm64 image natively on any
-# Apple Silicon Mac in one command.
+# The runner's architecture is recorded at runtime and included in the artifact
+# name, so each published image is labelled from the actual build host.
+# packaging/macos/build-app.sh can also build a native image on a local Mac.
 on:
   workflow_dispatch:
   push:
