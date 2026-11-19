@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rocket Suite</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="mark">◭</span><div><strong>Rocket Suite</strong><small>design · fly · analyse</small></div></div>
+    <nav id="nav">
+      <button data-route="dashboard" class="active"><span>▤</span>Dashboard</button>
+      <button data-route="designer"><span>◭</span>Rocket Designer</button>
+      <button data-route="simulator"><span>➤</span>Flight Simulator</button>
+      <button data-route="viewer"><span>◱</span>3D Viewer</button>
+      <button data-route="analysis"><span>◔</span>Flight Analysis</button>
+      <button data-route="projects"><span>❐</span>Project Manager</button>
+      <button data-route="settings"><span>⚙</span>Settings</button>
+    </nav>
+    <div class="engine-badges">
+      <span>OpenRocket</span><span>RocketSerializer</span><span>RocketPy</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="view-title">Dashboard</h1>
+        <p id="view-sub" class="sub">One workspace for design, flight and analysis</p>
+      </div>
+      <div class="status" id="runtime-status">checking runtime…</div>
+    </header>
+
+    <section class="view" id="view-dashboard">
+      <div class="cards" id="dashboard-cards"></div>
+      <div class="panel">
+        <h2>Recent projects</h2>
+        <div id="recent-projects" class="list muted">No projects yet.</div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-designer">
+      <div class="panel">
+        <h2>Open an OpenRocket design</h2>
+        <p class="muted">OpenRocket remains the authoritative design source. Designs are read with the OpenRocket engine and converted by RocketSerializer.</p>
+        <div class="row">
+          <select id="example-select"></select>
+          <button id="btn-open-design" class="primary">Load design</button>
+        </div>
+        <div id="design-error" class="error hidden"></div>
+      </div>
+      <div class="grid two">
+        <div class="panel">
+          <h2>Design summary</h2>
+          <div id="design-summary" class="kv muted">No design loaded.</div>
+        </div>
+        <div class="panel">
+          <h2>Conversion report</h2>
+          <div id="conversion-report" class="muted">Conversion runs when a flight starts.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-simulator">
+      <div class="panel">
+        <h2>Flight</h2>
+        <p class="muted">The design is converted automatically on every run, then flown by RocketPy.</p>
+        <div class="row">
+          <label>Launch elevation <input id="env-elevation" type="number" value="0" step="10" /> m</label>
+          <label>Wind <input id="env-wind" type="number" value="2" step="0.5" /> m/s</label>
+          <label>Rail length <input id="env-rail" type="number" value="1" step="0.1" /> m</label>
+        </div>
+        <div class="row">
+          <button id="btn-simulate" class="primary" disabled>Run flight simulation</button>
+          <button id="btn-save-project" disabled>Save project</button>
+          <span id="sim-status" class="muted"></span>
+        </div>
+      </div>
+      <div class="grid two">
+        <div class="panel"><h2>Result</h2><div id="sim-summary" class="kv muted">No flight yet.</div></div>
+        <div class="panel"><h2>Events</h2><div id="sim-events" class="muted">—</div></div>
+      </div>
+      <div class="panel"><h2>Vs OpenRocket's stored results</h2><div id="sim-compare" class="muted">—</div></div>
+    </section>
+
+    <section class="view hidden" id="view-viewer">
+      <div class="panel pad0">
+        <div class="viewer-toolbar">
+          <span class="muted" id="viewer-hint">Load a design to see its geometry.</span>
+          <div class="row">
+            <label class="check"><input type="checkbox" id="follow" checked /> follow flight</label>
+            <button id="btn-play" disabled>Play flight</button>
+          </div>
+        </div>
+        <canvas id="viewer-canvas" height="520"></canvas>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-analysis">
+      <div class="panel">
+        <div class="row between">
+          <h2>Flight analysis</h2>
+          <select id="chart-select">
+            <option value="altitude">Altitude / time</option>
+            <option value="speed">Speed / time</option>
+            <option value="acceleration">Acceleration / time</option>
+            <option value="thrust">Thrust / time</option>
+            <option value="mass">Mass / time</option>
+          </select>
+        </div>
+        <canvas id="chart-canvas" height="360"></canvas>
+        <div id="analysis-links" class="row muted"></div>
+      </div>
+      <div class="panel"><h2>Events</h2><div id="analysis-events" class="muted">No flight yet.</div></div>
+    </section>
+
+    <section class="view hidden" id="view-projects">
+      <div class="panel">
+        <h2>Projects</h2>
+        <div id="project-list" class="list muted">No projects yet.</div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-settings">
+      <div class="panel"><h2>Runtime</h2><div id="settings-runtime" class="kv muted">…</div></div>
+      <div class="panel">
+        <h2>What runs what</h2>
+        <ul class="plain">
+          <li><strong>Design</strong> — OpenRocket 24.12 (GPL-3.0), loaded in-process through JPype.</li>
+          <li><strong>Conversion</strong> — RocketSerializer (MIT), including its OpenRocket jar driver.</li>
+          <li><strong>Flight</strong> — RocketPy (MIT); no physics is re-implemented in the suite.</li>
+          <li><strong>ORHelper</strong> — used only through RocketSerializer's own driver; there is one JVM per session.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

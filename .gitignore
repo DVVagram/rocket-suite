@@ -97,3 +97,12 @@ openrocket.log
 
 # Sphinx documentation
 docs/build
+# Unified rocket suite runtime (never committed: large, machine-specific)
+.venv/
+tools/jdk*/
+tools/*.zip
+vendor/openrocket/
+suite/data/
+
+__pycache__/
+*.pyc
