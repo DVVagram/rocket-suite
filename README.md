@@ -17,8 +17,8 @@
 >
 > **Download and install (Windows):**
 >
-> **[RocketSuite-Setup.exe](https://github.com/DVVagram/e8b0cc00-e4cb-454a-9f04-a7e057cd0b15/releases/latest/download/RocketSuite-Setup.exe)**
-> - 297 MB, from [the latest release](https://github.com/DVVagram/e8b0cc00-e4cb-454a-9f04-a7e057cd0b15/releases/latest).
+> **[RocketSuite-Setup.exe](https://github.com/DVVagram/rocket-suite/releases/latest/download/RocketSuite-Setup.exe)**
+> - 297 MB, from [the latest release](https://github.com/DVVagram/rocket-suite/releases/latest).
 >
 > Double-click it. It installs for the current user - no administrator rights, no
 > Java and no Python needed, because a linked Java 17 runtime and a Python with
