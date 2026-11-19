@@ -182,8 +182,22 @@ to convert the design and fly it there. Known limits are in PLAN.md on GitHub.
 Licence: GPL-3.0, as OpenRocket. Source: https://github.com/DVVagram/rocket-suite
 NOTE
 
-hdiutil create -volname "Rocket Suite" -srcfolder "$STAGE" -ov -format UDZO \
-    "$ROOT/dist/RocketSuite.dmg" >/dev/null
+DMG_TMP="$ROOT/dist/RocketSuite-build-$.dmg"
+created=0
+for attempt in 1 2 3; do
+    rm -f "$DMG_TMP"
+    if hdiutil create -volname "Rocket Suite" -srcfolder "$STAGE" -ov -format UDZO \
+        "$DMG_TMP" >/dev/null; then
+        created=1
+        break
+    fi
+    if [[ "$attempt" -lt 3 ]]; then
+        echo "[package] disk image creation was busy; retrying ($attempt/3)" >&2
+        sleep 5
+    fi
+done
+[[ "$created" == "1" ]] || { echo "could not create the RocketSuite disk image after 3 attempts" >&2; exit 1; }
+mv -f "$DMG_TMP" "$ROOT/dist/RocketSuite.dmg"
 rm -rf "$STAGE"
 DMG_MB=$(du -sm "$ROOT/dist/RocketSuite.dmg" | cut -f1)
 echo "[package] RocketSuite.dmg is ${DMG_MB} MB"
