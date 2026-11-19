@@ -91,10 +91,11 @@ jobs:
           $env:PYTHONNOUSERSITE = "1"
           $python = Join-Path $bundle "runtime\python\python.exe"
           $app = Join-Path $bundle "app"
+          $env:ROCKETSUITE_APP_HOME = $app
           $script = @'
-          import sys
+          import os, sys
           from pathlib import Path
-          sys.path.insert(0, str(Path(r"$app")))
+          sys.path.insert(0, os.environ["ROCKETSUITE_APP_HOME"])
           from sidecar import conversion, flight
           design = Path("core/src/main/resources/datafiles/examples/A simple model rocket.ork")
           converted = conversion.convert(str(design))
