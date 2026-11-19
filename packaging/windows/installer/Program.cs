@@ -12,6 +12,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 using System.Windows.Forms;
 
 internal static class Program
@@ -57,16 +58,34 @@ internal static class Program
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 WorkingDirectory = tree
             };
+            var setupOutput = new StringBuilder();
             using (Process setupProcess = Process.Start(start))
             {
+                setupProcess.OutputDataReceived += (sender, args) =>
+                {
+                    if (args.Data != null) lock (setupOutput) setupOutput.AppendLine(args.Data);
+                };
+                setupProcess.ErrorDataReceived += (sender, args) =>
+                {
+                    if (args.Data != null) lock (setupOutput) setupOutput.AppendLine(args.Data);
+                };
+                setupProcess.BeginOutputReadLine();
+                setupProcess.BeginErrorReadLine();
+                setupProcess.WaitForExit();
                 setupProcess.WaitForExit();
                 if (setupProcess.ExitCode != 0)
                 {
+                    string details;
+                    lock (setupOutput) details = setupOutput.ToString().Trim();
+                    if (details.Length > 2500) details = details.Substring(details.Length - 2500);
                     MessageBox.Show("Rocket Suite setup did not complete.\r\n\r\nExit code: "
-                            + setupProcess.ExitCode, "Rocket Suite Setup",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            + setupProcess.ExitCode
+                            + (details.Length == 0 ? "" : "\r\n\r\n" + details),
+                            "Rocket Suite Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
                 return setupProcess.ExitCode;
             }
