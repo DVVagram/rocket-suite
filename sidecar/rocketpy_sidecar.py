@@ -79,6 +79,7 @@ def _convert(params: dict) -> dict:
         java_home=params.get("java_home"),
         jar_path=params.get("jar"),
         configuration=params.get("configuration"),
+        fin_offsets=params.get("fin_offsets"),
     )
 
 
