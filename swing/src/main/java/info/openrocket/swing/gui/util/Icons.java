@@ -182,6 +182,11 @@ public class Icons {
 		}
 
 		Image image = ((ImageIcon) icon).getImage();
+		if (image == null) {
+			// An icon with no image is what a test run gets when openrocket.unittest is
+			// set; scaling it used to throw a NullPointerException.
+			return icon;
+		}
 		int width = (int)(image.getWidth(null) * scale);
 		int height = (int)(image.getHeight(null) * scale);
 

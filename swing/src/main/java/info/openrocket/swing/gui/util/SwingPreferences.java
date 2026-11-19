@@ -106,24 +106,29 @@ public class SwingPreferences extends ApplicationPreferences {
 	 * Overridable with {@code -Dopenrocket.preferences.node=...} so a test run (or a
 	 * portable installation) can keep its settings out of the user's own node.
 	 */
-	private static final String NODENAME = System.getProperty("openrocket.preferences.node",
-			DEBUG ? "OpenRocket-debug" : "OpenRocket");
+	private static String nodeName() {
+		// Read on every use, not once into a constant: a static initialiser runs when
+		// the class is first loaded, which can be before a test has set the property -
+		// and then the test writes into the user's own node anyway.
+		return System.getProperty("openrocket.preferences.node", DEBUG ? "OpenRocket-debug" : "OpenRocket");
+	}
 	
 	private Preferences PREFNODE;
 	
 	
 	public SwingPreferences() {
 		Preferences root = Preferences.userRoot();
+		String nodename = nodeName();
 		if (DEBUG && CLEARPREFS) {
 			try {
-				if (root.nodeExists(NODENAME)) {
-					root.node(NODENAME).removeNode();
+				if (root.nodeExists(nodename)) {
+					root.node(nodename).removeNode();
 				}
 			} catch (BackingStoreException e) {
 				throw new BugException("Unable to clear preference node", e);
 			}
 		}
-		PREFNODE = root.node(NODENAME);
+		PREFNODE = root.node(nodename);
 		fillDefaultComponentColors();
 	}
 
@@ -145,7 +150,7 @@ public class SwingPreferences extends ApplicationPreferences {
 	}
 
 	public String getNodename() {
-		return NODENAME;
+		return nodeName();
 	}
 	
 	
@@ -175,10 +180,11 @@ public class SwingPreferences extends ApplicationPreferences {
 	public void clearPreferences() {
 		try {
 			Preferences root = Preferences.userRoot();
-			if (root.nodeExists(NODENAME)) {
-				root.node(NODENAME).removeNode();
+			String nodename = nodeName();
+			if (root.nodeExists(nodename)) {
+				root.node(nodename).removeNode();
 			}
-			PREFNODE = root.node(NODENAME);
+			PREFNODE = root.node(nodename);
 			UnitGroup.resetDefaultUnits();
 			storeDefaultUnits();
 			log.info("Cleared preferences");

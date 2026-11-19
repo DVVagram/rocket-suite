@@ -97,6 +97,24 @@ def test_flight_reports_its_assumptions(flown):
     joined = " ".join(report["approximations"]).lower()
     assert "wind" in joined, "still-air flight must say so"
     assert "drag" in joined, "the drag mapping must be stated"
+    unsupported = " ".join(report["unsupported"]).lower()
+    assert "body tube" in unsupported, "the missing airframe lift must be stated"
+
+
+@needs_runtime
+def test_static_margin_is_the_figure_at_launch(flown):
+    """Stability means the value at ignition, not the largest one in the flight.
+
+    The reported value used to be the maximum over the whole flight, reached after
+    burnout: 8.5 cal for a design OpenRocket puts at 2.1 cal. The two numbers are
+    now kept apart so this cannot come back unnoticed.
+    """
+    flight = flown["flight"]
+    launch = flight["static_margin_calibers"]
+    largest = flight["static_margin_max_calibers"]
+    assert launch is not None and largest is not None
+    assert -5 < launch < largest, (launch, largest)
+    assert launch < 5, "the example design is marginally stable; a launch value near 8 is the old bug"
 
 
 @needs_runtime

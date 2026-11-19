@@ -162,9 +162,36 @@ known S5 defect - RocketSerializer pairs a converted motor with another
 configuration's stored flight - now visible in the product, and it is why the
 panel labels OpenRocket's numbers "reference only" and says so explicitly.
 
-RocketPy's own static margin from the converted geometry (8.5 cal) also differs
-from OpenRocket's stored 3.2 cal; the converted fin position is the first
-suspect and stays open.
+RocketPy's own static margin from the converted geometry (8.5 cal) also differed
+from OpenRocket's 3.2 cal.
+
+**Fixed after S7, and it was two defects, not physics.** The figure the tab showed
+was the *largest* margin anywhere in the flight - reached after burnout, when the
+propellant is gone - rather than the margin at ignition; it reports the launch
+value now. The converted fin position was wrong as well: RocketSerializer placed
+the example's fins at 0.508 m on a 0.332 m rocket, behind the tail, because
+OpenRocket stores that offset as `method="bottom"` against the body tube's aft
+end and it was read as a distance from the nose. Fins are now placed from the
+design's own component tree, accumulated down the tree, giving 0.281 m; RocketPy's
+centre of pressure moved from 0.452 m to 0.263 m, against OpenRocket's 0.300 m.
+
+What remains is a modelling limit, and the tab now states it instead of hiding it:
+RocketPy has no surface for a body tube, so it computes lift from the nose and the
+fins only. Its centre of pressure is therefore forward of OpenRocket's and its
+static margin is smaller - 0.04 cal against OpenRocket's 2.1 cal for this design -
+which is why `report.unsupported` says so on every flight. Apogee is unchanged at
+319.9 m. `test_fins_sit_where_the_design_puts_them`,
+`test_fins_stay_inside_the_airframe` and `test_static_margin_is_the_figure_at_launch`
+hold all three points down.
+
+Two more defects surfaced while testing the packaged build. `SwingPreferences`
+resolved its node name in a static initialiser, so the property a test sets
+arrived too late whenever another test class had already loaded the class - the
+isolation only worked by luck of ordering; the name is now read on every use.
+And `Icons.getScaledIcon` threw a `NullPointerException` on the empty icons that
+OpenRocket's own test mode produces, which made the tab test fail depending on
+which class ran first; it now returns the icon unscaled. The full suite is green:
+29 pytest cases and 36 JUnit cases.
 
 **Resolved in S5.** The mismatch was not a physics error: RocketSerializer read
 the thrust curve from the last simulation in the file and the stored summary
@@ -187,6 +214,7 @@ is the remaining open item, and it no longer affects the apogee comparison.
 | RocketSerializer needs a design that has been simulated in OpenRocket | the simulation tab is right beside the RocketPy tab; the tab states the requirement and offers to run it |
 | Drag input coupling | OpenRocket's drag curve is labelled as design data; a constant-Cd alternative is selectable |
 | RocketPy plots are matplotlib images in a Swing tab | PNG first; data export available; interactive plotting only if it proves necessary |
+| RocketPy models lift from the nose and fins only - no body tube - so its static margin reads lower than OpenRocket's for the same design | stated in the flight report on every run and documented here; the centre of pressure itself is now correct to 4 cm, since the fin position bug behind it is fixed |
 | Two runtimes to ship | jlink JRE + embedded CPython, measured in S7 |
 
 ## 5. Repository state

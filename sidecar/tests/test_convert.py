@@ -56,6 +56,29 @@ def converted():
 
 
 @needs_runtime
+def test_fins_sit_where_the_design_puts_them(converted):
+    """The example's fin set is flush with the aft end of its 0.300 m body tube.
+
+    The tube starts 0.032 m from the nose tip, so the tube ends at 0.332 m and the
+    fins' leading edge is 0.332 - 0.0508 = 0.2812 m. RocketSerializer reported
+    0.5082 m - behind the tail of a 0.332 m rocket - which pushed the centre of
+    pressure 15 cm aft and made the static margin read 7.6 cal for a design
+    OpenRocket puts at 2.1 cal.
+    """
+    fins = next(iter(converted["parameters"]["trapezoidal_fins"].values()))
+    assert abs(fins["position"] - 0.2812) < 0.001, fins["position"]
+    assert any(note.startswith("Fin set") for note in converted["report"]["approximations"])
+
+
+@needs_runtime
+def test_fins_stay_inside_the_airframe(converted):
+    """A fin that trails behind the rocket is a conversion error, not a design."""
+    fins = next(iter(converted["parameters"]["trapezoidal_fins"].values()))
+    airframe = 0.032 + 0.300  # tube offset and tube length in the example design
+    assert fins["position"] + fins["root_chord"] <= airframe + 1e-9
+
+
+@needs_runtime
 def test_conversion_returns_design_values_and_report(converted):
     params = converted["parameters"]
     assert params["rocket"]["mass"] > 0

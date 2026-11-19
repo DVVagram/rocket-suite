@@ -105,6 +105,13 @@ def _rocket(values: dict, report: dict):
         "the whole-flight drag OpenRocket computed for this design, not a separate "
         "powered curve."
     )
+    report["unsupported"].append(
+        "RocketPy has no surface for a body tube: it computes lift from the nose cone and "
+        "the fins only. Its centre of pressure therefore sits further forward than "
+        "OpenRocket's, and the static margin it reports is smaller than OpenRocket's for "
+        "the same design. OpenRocket's own flight, where the file stores one, is the figure "
+        "to compare against stability."
+    )
     return Rocket(**_subset(kwargs, _accepted(Rocket.__init__)))
 
 
@@ -167,6 +174,20 @@ def _parachutes(rocket, values: dict, report: dict) -> list[str]:
                 "interpreted from OpenRocket's deployment delay."
             )
     return names
+
+
+def _static_margin_at_launch(rocket) -> float | None:
+    """Stability at ignition, in calibers - the figure OpenRocket reports.
+
+    The previous version fell back to the largest value over the whole flight,
+    which is reached after burnout when the propellant is gone; it read 8.5 cal
+    against OpenRocket's 3.2 for the same design and looked like a physics
+    error.
+    """
+    try:
+        return _number(rocket.static_margin(0.0))
+    except Exception:
+        return _max_function(rocket.static_margin)
 
 
 def _events(flight, parachute_names: list[str]) -> list[dict]:
@@ -319,8 +340,8 @@ def fly(parameters: dict, overrides: dict | None = None) -> dict:
         "max_acceleration_m_s2": _max_function(getattr(flight, "acceleration", None)),
         "flight_time_s": _number(getattr(flight, "t_final", None)),
         "out_of_rail_velocity_m_s": _max(lambda: flight.out_of_rail_velocity),
-        "static_margin_calibers": _number(getattr(rocket.static_margin, "average", None))
-        or _max_function(rocket.static_margin),
+        "static_margin_calibers": _static_margin_at_launch(rocket),
+        "static_margin_max_calibers": _max_function(rocket.static_margin),
     }
 
     _SESSION.clear()
