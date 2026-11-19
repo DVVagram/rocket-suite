@@ -106,6 +106,7 @@ public class DesignConversionTest {
             JsonObject result = client.request("convert", Json.createObjectBuilder()
                     .add("ork", staged.toString())
                     .add("java_home", System.getProperty("java.home"))
+                    .add("configuration", DocumentExport.selectedConfigurationId(document))
                     .build(), Duration.ofSeconds(240));
 
             JsonObject parameters = result.getJsonObject("parameters");
@@ -148,6 +149,7 @@ public class DesignConversionTest {
             JsonObject converted = client.request("convert", Json.createObjectBuilder()
                     .add("ork", staged.toString())
                     .add("java_home", System.getProperty("java.home"))
+                    .add("configuration", DocumentExport.selectedConfigurationId(document))
                     .build(), Duration.ofSeconds(240));
 
             JsonObject flown = client.request("fly", Json.createObjectBuilder()
@@ -163,6 +165,17 @@ public class DesignConversionTest {
             assertFalse(flown.getJsonArray("events").isEmpty(), "the flight must report its events");
             assertFalse(flown.getJsonObject("report").getJsonArray("approximations").isEmpty(),
                     "a flight must state what it approximated");
+
+            // Both engines now describe the same configuration, so their apogees
+            // must be close; before the configuration was passed through, they
+            // differed by a factor of six on this very design.
+            JsonObject reference = converted.getJsonObject("reference");
+            double openRocket = reference.getJsonNumber("max_altitude").doubleValue();
+            double rocketPy = flight.getJsonNumber("apogee_m").doubleValue();
+            double difference = Math.abs(rocketPy - openRocket) / openRocket;
+            assertTrue(difference < 0.10,
+                    String.format("apogee %.1f m differs from OpenRocket's %.1f m by %.1f %%",
+                            rocketPy, openRocket, difference * 100));
         } finally {
             Files.deleteIfExists(staged);
         }

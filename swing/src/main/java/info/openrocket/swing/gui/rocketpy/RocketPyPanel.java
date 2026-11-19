@@ -21,6 +21,7 @@ import javax.swing.SwingWorker;
 
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
+import jakarta.json.JsonObjectBuilder;
 import jakarta.json.JsonNumber;
 import jakarta.json.JsonObject;
 
@@ -58,6 +59,7 @@ public class RocketPyPanel extends JPanel {
     private SidecarClient client;
     private JsonObject lastConversion;
     private JsonObject lastFlight;
+    private String lastConfigurationName;
 
     public RocketPyPanel(OpenRocketDocument document) {
         super(new BorderLayout(0, 8));
@@ -256,7 +258,7 @@ public class RocketPyPanel extends JPanel {
             appendList(text, "Modelling approximations", report.getJsonArray("approximations"));
             appendList(text, "Not modelled", report.getJsonArray("unsupported"));
         }
-        appendReference(text);
+        appendReference(text, flight == null ? null : flight.getJsonNumber("apogee_m").doubleValue());
         appendLog(text.toString());
 
         setStatus(flight == null ? "Flown" : String.format(Locale.ROOT,
@@ -268,7 +270,7 @@ public class RocketPyPanel extends JPanel {
      * It is never sent to the flight engine: it is here so a difference is
      * visible instead of hidden.
      */
-    private void appendReference(StringBuilder text) {
+    private void appendReference(StringBuilder text, Double rocketPyApogee) {
         JsonObject reference = lastConversion == null ? null : lastConversion.getJsonObject("reference");
         if (reference == null || reference.isEmpty()) {
             return;
@@ -277,8 +279,16 @@ public class RocketPyPanel extends JPanel {
         appendNumber(text, "apogee", reference, "max_altitude", "m", 1);
         appendNumber(text, "max speed", reference, "max_velocity", "m/s", 1);
         appendNumber(text, "flight time", reference, "flight_time", "s", 2);
-        text.append("\n  If these disagree, check which configuration OpenRocket stored the "
-                + "flight for; the stored results are not necessarily the motor flown here.");
+        if (rocketPyApogee != null && reference.containsKey("max_altitude")
+                && !reference.isNull("max_altitude")) {
+            double stored = reference.getJsonNumber("max_altitude").doubleValue();
+            if (stored > 0) {
+                text.append(String.format(Locale.ROOT, "\n  apogee difference: %+.1f %%",
+                        (rocketPyApogee - stored) / stored * 100));
+            }
+        }
+        text.append("\n  Both numbers describe the same configuration, so a difference is a "
+                + "modelling difference between the two engines, not a mismatch of designs.");
     }
 
     private static void appendNumber(StringBuilder text, String label, JsonObject values,
@@ -320,12 +330,17 @@ public class RocketPyPanel extends JPanel {
             @Override
             protected JsonObject doInBackground() throws Exception {
                 staged = DocumentExport.saveToTemp(document);
+                lastConfigurationName = DocumentExport.selectedConfigurationName(document);
                 publish("design saved for conversion: " + staged.getFileName());
-                JsonObject params = Json.createObjectBuilder()
+                publish("configuration: " + lastConfigurationName);
+                JsonObjectBuilder params = Json.createObjectBuilder()
                         .add("ork", staged.toString())
-                        .add("java_home", System.getProperty("java.home"))
-                        .build();
-                return active.request("convert", params, CONVERT_TIMEOUT);
+                        .add("java_home", System.getProperty("java.home"));
+                String configuration = DocumentExport.selectedConfigurationId(document);
+                if (configuration != null) {
+                    params.add("configuration", configuration);
+                }
+                return active.request("convert", params.build(), CONVERT_TIMEOUT);
             }
 
             @Override
@@ -375,6 +390,17 @@ public class RocketPyPanel extends JPanel {
         if (report != null) {
             text.append("\nConverted by ").append(report.getString("converter", "unknown"))
                     .append("; OpenRocket's own results are kept aside for comparison only.");
+            JsonObject configuration = report.getJsonObject("configuration");
+            if (configuration != null) {
+                text.append("\nOnly configuration '").append(lastConfigurationName == null ? "?" : lastConfigurationName)
+                        .append("' was converted: ").append(configuration.getInt("remaining_simulations", 1))
+                        .append(" of its simulations kept, ")
+                        .append(configuration.getInt("removed_simulations", 0)).append(" others set aside.");
+            }
+            JsonObject flightData = report.getJsonObject("flight_data");
+            if (flightData != null) {
+                text.append("\nStored flight taken from: ").append(flightData.getString("simulation", "unknown"));
+            }
             appendList(text, "Warnings", report.getJsonArray("warnings"));
             appendList(text, "Not representable", report.getJsonArray("unsupported"));
             appendList(text, "Approximations", report.getJsonArray("approximations"));

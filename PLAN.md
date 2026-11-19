@@ -130,7 +130,8 @@ custom plotting library, FreeCAD integration.
 | S2 | **done** | sidecar protocol (7 pytest cases) and `SidecarClient` (5 JUnit cases, 0 skipped) pass against the real Python process, including a killed-process case that must raise rather than hang; the app still builds and launches (18.7 s, 597 MB) |
 | S3 | **done** | the open document is saved by OpenRocket's own saver (with flight data forced on) and converted by RocketSerializer in the sidecar: 5 bundled examples convert (0.061–11.08 kg), every loss listed — ARC's `lowerstageseparation` parachute trigger is reported rather than dropped; 13 pytest cases and `DesignConversionTest` (save → reload, save → convert, 0 skipped) pass; the app still launches (no exceptions) |
 | S4 | **done** | `fly` builds Environment/Motor/Rocket/nose/fins/parachutes from the parameters only and flies: apogee **319.9 m at 7.8 s**, max speed 94.7 m/s (Mach 0.279), off the rail 17.3 m/s, flight time 93.5 s, 7.3 s of wall time; 19 pytest cases (6 of them flight) and 9 JUnit cases pass |
-| S5 | next | separation enforced end to end, plus the configuration-selection fix |
+| S5 | **done** | the selected configuration is sliced out before conversion, so motor, geometry and stored flight come from the same flight: A8 → OpenRocket 50.6 m / RocketPy **50.1 m (−1.0 %)**, C6 → 319.8 m / **319.9 m (+0.1 %)**; the reference is recovered from the recorded points because 24.12 stopped writing the summary attributes; 23 pytest and 9 JUnit cases pass |
+| S6 | next | full RocketPy reach: console, plots, Compare |
 
 Build and run (from the repository root, JDK 17 in `tools/`):
 
@@ -161,8 +162,19 @@ configuration's stored flight - now visible in the product, and it is why the
 panel labels OpenRocket's numbers "reference only" and says so explicitly.
 
 RocketPy's own static margin from the converted geometry (8.5 cal) also differs
-from OpenRocket's stored 3.2-3.2 cal; the converted fin position is the first
-suspect and stays open until S5.
+from OpenRocket's stored 3.2 cal; the converted fin position is the first
+suspect and stays open.
+
+**Resolved in S5.** The mismatch was not a physics error: RocketSerializer read
+the thrust curve from the last simulation in the file and the stored summary
+from the first, so it compared a C6 burn against an A8 flight. Converting one
+configuration at a time - the one selected in OpenRocket - makes the two engines
+agree to within 1 %: 50.1 m against 50.6 m for the A8 configuration, 319.9 m
+against 319.8 m for the C6. A second, independent defect surfaced on the way:
+OpenRocket 24.12 writes `<flightdata>` without the attributes RocketSerializer
+needs, so every design saved by this app reported a 0 m reference; the figures
+are now recovered from the recorded flight points. The static-margin difference
+is the remaining open item, and it no longer affects the apogee comparison.
 
 | Risk | Mitigation |
 | --- | --- |

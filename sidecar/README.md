@@ -61,6 +61,39 @@ Things it deliberately changes and reports:
 * a parachute whose drag coefficient is `auto` gets `cd = 1.0`;
 * pods, parallel boosters and wings are listed under `unsupported`.
 
+### One configuration at a time
+
+An `.ork` holds every configuration side by side, each with its own motor, and
+each simulation belongs to one of them. RocketSerializer reads the motor from
+one place and the stored flight from another, so on a multi-configuration design
+it pairs a motor with a flight that was never flown with it: on the bundled
+example it produced a C6 thrust curve (8.8 N·s) next to an A8 flight's apogee
+(50.6 m).
+
+The request therefore carries `"configuration": "<OpenRocket configuration id>"`
+(the application sends the one selected in its window). `sidecar/ork_slice.py`
+removes every other configuration, its motors and its simulations before the
+converter sees the file, so geometry, motor and stored flight all come from the
+same flight. Matching configurations gives agreement between the engines:
+
+| Configuration | Impulse | OpenRocket | RocketPy |
+| --- | --- | --- | --- |
+| A8 | 2.32 N·s | 50.6 m | **50.1 m** (−1.0 %) |
+| C6 | 8.81 N·s | 319.8 m | **319.9 m** (+0.1 %) |
+
+An id that is no longer in the design is an error, not a silent fallback to
+converting every configuration.
+
+### OpenRocket 24.12 no longer writes the summary attributes
+
+RocketSerializer reads `maxaltitude`, `maxvelocity` and friends from
+`<simulation><flightdata ...>`; 24.12 writes `<flightdata>` empty and keeps the
+per-branch data in `<databranch optimumAltitude=... types=...>` plus the point
+table. So a file saved by this suite used to report a **0 m** reference. The
+converter now recovers the comparison figures from the recorded points - still
+OpenRocket's own flight, not a RocketPy result - and says in `report.warnings`
+that it had to.
+
 ### The OpenRocket jar
 
 RocketSerializer drives OpenRocket through `net.sf.openrocket.*` classes, the

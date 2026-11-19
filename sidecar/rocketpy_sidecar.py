@@ -78,6 +78,7 @@ def _convert(params: dict) -> dict:
         ork,
         java_home=params.get("java_home"),
         jar_path=params.get("jar"),
+        configuration=params.get("configuration"),
     )
 
 

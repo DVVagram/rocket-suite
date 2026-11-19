@@ -157,6 +157,64 @@ def _unsupported_structures(bs) -> list[str]:
     ]
 
 
+def _stored_flight(bs) -> dict:
+    """Recover OpenRocket's own flight summary from its recorded datapoints.
+
+    OpenRocket 24.12 writes the simulation summary without the attributes
+    RocketSerializer looks for (`maxaltitude`, `maxvelocity`, ...), so on a file
+    saved by this suite every comparison figure would arrive as 0. The points it
+    does write are the same flight, so the figures are read from them - still
+    OpenRocket's result, not a RocketPy one.
+    """
+    simulation = bs.find("simulation")
+    branch = simulation.find("databranch") if simulation is not None else None
+    if branch is None:
+        return {}
+
+    labels = [label.strip() for label in (branch.get("types") or "").split(",") if label.strip()]
+    wanted = ("Time", "Altitude", "Total velocity", "Mach number", "Total acceleration")
+    indices = {name: labels.index(name) for name in wanted if name in labels}
+    if "Time" not in indices or "Altitude" not in indices:
+        return {}
+
+    rows = []
+    for point in branch.find_all("datapoint"):
+        values = point.text.split(",")
+        try:
+            row = {name: float(values[i]) for name, i in indices.items()}
+        except (IndexError, ValueError):
+            continue
+        if any(value != value for value in row.values()):
+            continue
+        rows.append(row)
+    if not rows:
+        return {}
+
+    peak = max(rows, key=lambda row: row["Altitude"])
+    reference = {
+        "max_altitude": peak["Altitude"],
+        "time_to_apogee": peak["Time"],
+        "flight_time": rows[-1]["Time"],
+    }
+    if "Total velocity" in indices:
+        reference["max_velocity"] = max(row["Total velocity"] for row in rows)
+        reference["ground_hit_velocity"] = rows[-1]["Total velocity"]
+        rail = simulation.find("conditions")
+        rail_length = rail.find("launchrodlength") if rail is not None else None
+        try:
+            length = float(rail_length.text) if rail_length is not None else 0.0
+        except ValueError:
+            length = 0.0
+        off_rail = [row["Total velocity"] for row in rows if row["Altitude"] >= length]
+        if off_rail:
+            reference["launch_rod_velocity"] = off_rail[0]
+    if "Mach number" in indices:
+        reference["max_mach"] = max(row["Mach number"] for row in rows)
+    if "Total acceleration" in indices:
+        reference["max_acceleration"] = max(abs(row["Total acceleration"]) for row in rows)
+    return reference
+
+
 def _design_summary(settings: dict) -> dict:
     rocket = settings.get("rocket") or {}
     return {
@@ -171,8 +229,15 @@ def _design_summary(settings: dict) -> dict:
     }
 
 
-def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = None) -> dict:
-    """Convert a saved .ork file and report exactly what happened."""
+def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = None,
+            configuration: str | None = None) -> dict:
+    """Convert a saved .ork file and report exactly what happened.
+
+    ``configuration`` is OpenRocket's id for the configuration the user is
+    working in. When it is given, every other configuration and its simulations
+    are removed before conversion, so the motor, the geometry and the stored
+    flight all come from the same flight.
+    """
     source = Path(ork_path)
     if not source.is_file():
         raise FileNotFoundError(f"design not found: {source}")
@@ -188,10 +253,18 @@ def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = 
     from rocketserializer._helpers import extract_ork_from_zip, parse_ork_file
     from rocketserializer.ork_extractor import ork_extractor
 
+    from sidecar.ork_slice import keep_configuration
+
     workdir = Path(tempfile.mkdtemp(prefix="rocketsuite-conv-"))
     staged = workdir / source.name
     staged.write_bytes(source.read_bytes())
     extracted = Path(extract_ork_from_zip(staged, workdir)) if source.suffix.lower() == ".ork" else staged
+
+    selection = None
+    if configuration:
+        sliced = workdir / f"design-{configuration}.ork"
+        selection = keep_configuration(extracted, configuration, sliced)
+        extracted = sliced
 
     bs, datapoints = parse_ork_file(extracted)
 
@@ -203,6 +276,19 @@ def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = 
         "approximations": [],
         "has_openrocket_flight_data": bool(len(datapoints)),
     }
+    if selection is None:
+        report["warnings"].append(
+            "No configuration was selected, so every configuration and simulation in "
+            "the design was converted together; the motor and the stored flight may "
+            "come from different configurations."
+        )
+    else:
+        report["configuration"] = selection
+        if selection["remaining_simulations"] == 0:
+            report["warnings"].append(
+                "The selected configuration has no simulation of its own; run "
+                "OpenRocket's simulation for it to give the conversion flight data."
+            )
     if not len(datapoints):
         report["warnings"].append(
             "The design has no stored OpenRocket simulation. RocketSerializer derives mass "
@@ -225,10 +311,26 @@ def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = 
     _normalise_parachutes(settings, report)
     report["unsupported"].extend(_unsupported_structures(bs))
 
+    simulation = bs.find("simulation")
+    if simulation is not None:
+        name = simulation.find("name")
+        report["flight_data"] = {"simulation": name.text.strip() if name else None}
+
     # Stored OpenRocket results are a reference for comparison, never an input.
-    reference = settings.pop("stored_results", {}) or {}
+    # RocketSerializer's own summary is kept where it is complete; the figures
+    # recovered from the recorded points fill in what 24.12 stopped writing.
+    from_serializer = settings.pop("stored_results", {}) or {}
+    recovered = _stored_flight(bs)
+    reference = {key: value for key, value in from_serializer.items() if value}
+    reference.update(recovered)
+
     if not reference:
         report["warnings"].append("The design carries no stored OpenRocket flight results to compare against.")
+    elif recovered and not from_serializer.get("max_altitude"):
+        report["warnings"].append(
+            "OpenRocket's saved summary is incomplete in this file's format, so the "
+            "comparison figures were read from the flight points it recorded."
+        )
 
     for chute in (settings.get("parachutes") or {}).values():
         if isinstance(chute, dict) and chute.get("cd") == "auto":

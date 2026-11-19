@@ -10,6 +10,7 @@ import info.openrocket.core.document.StorageOptions;
 import info.openrocket.core.file.openrocket.OpenRocketSaver;
 import info.openrocket.core.logging.ErrorSet;
 import info.openrocket.core.logging.WarningSet;
+import info.openrocket.core.rocketcomponent.FlightConfiguration;
 
 /**
  * Exports the open design to a temporary {@code .ork} file so the flight engine
@@ -23,6 +24,29 @@ import info.openrocket.core.logging.WarningSet;
 public final class DocumentExport {
 
     private DocumentExport() {
+    }
+
+    /**
+     * The id of the configuration the user is working in.
+     * <p>
+     * A design stores every configuration side by side, each with its own motor,
+     * and each simulation belongs to one of them. Naming the configuration here
+     * is what lets the converter take the motor, the geometry and the stored
+     * flight from the same one.
+     */
+    public static String selectedConfigurationId(OpenRocketDocument document) {
+        FlightConfiguration configuration = document.getSelectedConfiguration();
+        return configuration == null ? null : configuration.getId().toString();
+    }
+
+    /** A human-readable name for the selected configuration, for the report. */
+    public static String selectedConfigurationName(OpenRocketDocument document) {
+        FlightConfiguration configuration = document.getSelectedConfiguration();
+        if (configuration == null) {
+            return null;
+        }
+        String name = configuration.getName();
+        return name == null || name.isBlank() ? configuration.getNameRaw() : name;
     }
 
     /**
