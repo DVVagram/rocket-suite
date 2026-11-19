@@ -63,9 +63,28 @@ def _health(params: dict) -> dict:
     }
 
 
+def _convert(params: dict) -> dict:
+    """Convert the saved design to RocketPy parameters (S3)."""
+    ork = params.get("ork")
+    if not ork:
+        raise ValueError("convert needs 'ork' (path to a saved .ork file)")
+
+    # Imported lazily: the conversion stack (jpype, RocketSerializer, a JVM) is
+    # heavy and is only needed once a design is actually converted.
+    sys.path.insert(0, str(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from sidecar import conversion
+
+    return conversion.convert(
+        ork,
+        java_home=params.get("java_home"),
+        jar_path=params.get("jar"),
+    )
+
+
 METHODS = {
     "health": _health,
     "echo": lambda params: {"echo": params},
+    "convert": _convert,
 }
 
 

@@ -37,13 +37,61 @@ Newline-delimited JSON, one frame per line, UTF-8.
 | --- | --- | --- |
 | `health` | — | protocol, engine, python, platform, rocketpy/rocketserializer versions |
 | `echo` | anything | `{"echo": <params>}` |
+| `convert` | `{"ork": "<path>", "java_home"?: "...", "jar"?: "..."}` | `parameters`, `reference`, `report`, `design` |
 
-`convert` and `fly` arrive in S3 and S4.
+`fly` arrives in S4.
+
+## Conversion
+
+`convert` runs RocketSerializer on a saved `.ork` and splits its output three ways:
+
+| Key | Meaning |
+| --- | --- |
+| `parameters` | the converted design: the only thing a flight may read |
+| `reference` | OpenRocket's own stored flight results: display and comparison only |
+| `report` | `warnings`, `unsupported`, `approximations`, plus whether flight data was present |
+
+The split is the separation contract in code: OpenRocket's results are removed
+from the parameters before they are returned, so a flight cannot read them even
+by accident.
+
+Things it deliberately changes and reports:
+
+* OpenRocket's `ejection` parachute trigger becomes RocketPy's `apogee` trigger,
+  and the lost delay is listed under `approximations`;
+* a parachute whose drag coefficient is `auto` gets `cd = 1.0`;
+* pods, parallel boosters and wings are listed under `unsupported`.
+
+### The OpenRocket jar
+
+RocketSerializer drives OpenRocket through `net.sf.openrocket.*` classes, the
+package layout of OpenRocket 22/23. This suite forks 24.12, which renamed them
+to `info.openrocket.core.*`, so a 24.12 jar **cannot** serve the converter. The
+sidecar searches, in order: `"jar"` in the request, `ROCKETSUITE_ORK_JAR`, then
+`vendor/openrocket/*.jar`, `.integration-src/RocketSerializer/*.jar`,
+`tools/openrocket/*.jar` (highest version wins):
+
+```bash
+curl -L -o vendor/openrocket/OpenRocket-23.09.jar \
+  https://github.com/openrocket/openrocket/releases/download/release-23.09/OpenRocket-23.09.jar
+```
+
+The JVM comes from `"java_home"`, `ROCKETSUITE_JAVA_HOME`, `JAVA_HOME`, a
+`tools/*jre*` directory in the repository, or the OS. The application passes
+its own `java.home`, so a working OpenRocket is enough of a JVM.
+
+### Flight data must be in the file
+
+OpenRocket saves only simulation summaries by default, but RocketSerializer
+derives mass and aerodynamic properties from the sampled points. The Java side
+saves its own temporary copy with `saveSimulationData` forced on, so the file
+that crosses always has data regardless of the user's save settings. A design
+with no stored simulation at all is reported as a warning and converted anyway.
 
 ## Running it by hand
 
 ```bash
 .venv/Scripts/python.exe sidecar/rocketpy_sidecar.py            # serve on stdin/stdout
 .venv/Scripts/python.exe sidecar/rocketpy_sidecar.py --selftest # ready + health, then exit
-python -m pytest sidecar/tests -q                               # protocol tests
+python -m pytest sidecar/tests -q                               # protocol + conversion tests
 ```

@@ -108,3 +108,4 @@ tools/
 # Python bytecode (sidecar tests)
 __pycache__/
 *.pyc
+vendor/openrocket/*.jar

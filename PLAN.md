@@ -128,7 +128,8 @@ custom plotting library, FreeCAD integration.
 | S0 | **done** | `swing-24.12-all.jar` (83 MB) builds from `release-24.12` (133b558) with Gradle 8.12.1 + JDK 17; the window opens in 11.5 s and the JVM settles at 542–677 MB |
 | S1 | **done** | `RocketPyTabTest` passes: 4 tabs, the 4th is `RocketPyPanel`, OpenRocket's three tabs unchanged; the rebuilt app still launches (18.7 s cold) |
 | S2 | **done** | sidecar protocol (7 pytest cases) and `SidecarClient` (5 JUnit cases, 0 skipped) pass against the real Python process, including a killed-process case that must raise rather than hang; the app still builds and launches (18.7 s, 597 MB) |
-| S3 | next | RocketSerializer conversion of the open document |
+| S3 | **done** | the open document is saved by OpenRocket's own saver (with flight data forced on) and converted by RocketSerializer in the sidecar: 5 bundled examples convert (0.061–11.08 kg), every loss listed — ARC's `lowerstageseparation` parachute trigger is reported rather than dropped; 13 pytest cases and `DesignConversionTest` (save → reload, save → convert, 0 skipped) pass; the app still launches (no exceptions) |
+| S4 | next | RocketPy flight from the converted parameters |
 
 Build and run (from the repository root, JDK 17 in `tools/`):
 
@@ -136,6 +137,7 @@ Build and run (from the repository root, JDK 17 in `tools/`):
 ./gradlew :swing:shadowJar          # produces swing/build/libs/swing-24.12-all.jar
 java -cp swing/build/libs/swing-24.12-all.jar info.openrocket.swing.startup.OpenRocket
 ./gradlew :swing:test --tests "info.openrocket.swing.gui.main.RocketPyTabTest"
+.venv/Scripts/python.exe -m pytest sidecar/tests -q   # protocol + conversion (needs the 23.09 jar)
 ```
 
 The component/motor database is the upstream submodule
@@ -148,6 +150,9 @@ has no motors or presets.
 
 | Risk | Mitigation |
 | --- | --- |
+| B1 needs an **OpenRocket 22/23 jar** next to the 24.12 app, because RocketSerializer uses the pre-rename `net.sf.openrocket.*` packages | documented and searched for (`vendor/openrocket`, `ROCKETSUITE_ORK_JAR`); S8/B2 removes the need entirely |
+| OpenRocket stores only simulation **summaries** by default, which the converter cannot use | the exported copy forces `saveSimulationData`; a design with no simulation is reported, not silently flown |
+| Tests that install `SwingPreferences` write to the real user preferences, which can change what the application shows on the next start (e.g. the welcome dialog instead of a blank rocket) | noted; a temporary preferences directory in tests is the fix if it becomes a nuisance |
 | The app is a **fork of OpenRocket** | keep the diff small and isolated (one tab + one bridge class); rebase onto upstream releases; GPL-3.0 with sources (accepted) |
 | Second JVM in B1 | acceptable at first; B2 removes it; the memory cost is measured, not guessed |
 | RocketSerializer needs a design that has been simulated in OpenRocket | the simulation tab is right beside the RocketPy tab; the tab states the requirement and offers to run it |
@@ -160,3 +165,7 @@ has no motors or presets.
 Cleared on branch `desktop-fork`. Kept out of git but on disk: `.integration-src/`
 (reference clones of RocketPy, RocketSerializer, ORHelper, or-monte-carlo),
 `.venv/` (Python 3.12 + RocketPy stack) and `tools/` (portable JRE 17).
+
+The converter's OpenRocket 23.09 jar lives in `.integration-src/RocketSerializer/`
+on this machine; `vendor/openrocket/` is the git-ignored place for it in a fresh
+checkout (see `sidecar/README.md`).
