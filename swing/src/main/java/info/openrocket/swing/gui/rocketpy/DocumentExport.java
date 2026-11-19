@@ -3,14 +3,24 @@ package info.openrocket.swing.gui.rocketpy;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.util.Iterator;
 import java.nio.file.Path;
+
+import jakarta.json.Json;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonArrayBuilder;
+import jakarta.json.JsonObjectBuilder;
 
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.StorageOptions;
 import info.openrocket.core.file.openrocket.OpenRocketSaver;
 import info.openrocket.core.logging.ErrorSet;
 import info.openrocket.core.logging.WarningSet;
+import info.openrocket.core.rocketcomponent.EllipticalFinSet;
+import info.openrocket.core.rocketcomponent.FinSet;
 import info.openrocket.core.rocketcomponent.FlightConfiguration;
+import info.openrocket.core.rocketcomponent.RocketComponent;
+import info.openrocket.core.rocketcomponent.TrapezoidFinSet;
 
 /**
  * Exports the open design to a temporary {@code .ork} file so the flight engine
@@ -47,6 +57,35 @@ public final class DocumentExport {
         }
         String name = configuration.getName();
         return name == null || name.isBlank() ? configuration.getNameRaw() : name;
+    }
+
+    /**
+     * Export fin axial offsets resolved by OpenRocket in the rocket's coordinate frame.
+     * The serializer's stage-relative fin positions can be wrong for staged designs.
+     */
+    public static JsonArray finAxialOffsets(OpenRocketDocument document) {
+        JsonArrayBuilder offsets = Json.createArrayBuilder();
+        Iterator<RocketComponent> components = document.getRocket().iterator();
+        while (components.hasNext()) {
+            RocketComponent component = components.next();
+            if (!(component instanceof FinSet fin)) {
+                continue;
+            }
+            String type;
+            if (fin instanceof TrapezoidFinSet) {
+                type = "trapezoidal";
+            } else if (fin instanceof EllipticalFinSet) {
+                type = "elliptical";
+            } else {
+                continue;
+            }
+            JsonObjectBuilder entry = Json.createObjectBuilder()
+                    .add("type", type)
+                    .add("name", fin.getName())
+                    .add("axial_offset_m", fin.getAxialOffset());
+            offsets.add(entry);
+        }
+        return offsets.build();
     }
 
     /**
