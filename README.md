@@ -42,30 +42,29 @@
 > The converter needs an OpenRocket 22/23 jar (24.12 renamed the packages it uses)
 > and a JVM; see `sidecar/README.md` for the exact search order and how to set it.
 >
-> **macOS:** grab `RocketSuite-1.0-x86_64.dmg` from
+> **macOS:** grab `RocketSuite-1.0-arm64.dmg` (330 MB) from
 > [the latest release](https://github.com/DVVagram/rocket-suite/releases/latest).
 > Open it, drag **Rocket Suite** into *Applications*, then right-click the app and
 > choose **Open** the first time. Nothing else to install: the Java runtime and
-> Python are inside the app. The app is ad-hoc signed, not notarised, so Gatekeeper
-> stops that first launch; the read-me in the disk image carries the one-line
-> alternative:
+> Python are inside the app. It is ad-hoc signed, not notarised, so Gatekeeper stops
+> that first launch; the read-me in the disk image carries the one-line alternative:
 >
 > ```bash
 > xattr -dr com.apple.quarantine "/Applications/Rocket Suite.app"
 > ```
 >
-> On Apple Silicon the image is the Intel build - GitHub's arm64 macOS runners need
-> a paid plan - so macOS offers to install Rosetta the first time the app opens,
-> and it runs from then on. The image is built by `.github/workflows/macos.yml` on
-> GitHub's own Mac, where the same smoke test runs as on Windows: the bundled
-> Python converts the example design and flies it, then the app is started and has
-> to still be running 40 s later. Nobody has driven the RocketPy tab by hand on a
-> Mac, so that is the remaining check.
+> The image is native Apple Silicon, built and tested on GitHub's arm64 Mac
+> (`.github/workflows/macos.yml`): the bundled Python converts the example design
+> and flies it - 319.91 m apogee, 7.594 cal at launch, the same numbers the Windows
+> bundle gives - and then the app itself is started and has to still be alive after
+> 40 s. That app **has opened** on a Mac; nobody has driven the RocketPy tab by hand
+> on one, so that is the remaining check.
 >
-> For a native Apple Silicon build, `packaging/macos/build-app.sh` on any M-series
-> Mac produces one in a single command from a JDK 17, a standalone CPython and the
-> venv's site-packages - the header of that script lists the four commands that
-> prepare those.
+> **Intel Macs** have no image yet: GitHub's Intel macOS runner (`macos-13`) is not
+> available to this account, and an arm64 app cannot run on Intel. On any Mac,
+> `packaging/macos/build-app.sh` produces a native image in one command from a JDK
+> 17, a standalone CPython and the venv's site-packages; the header of that script
+> lists the four commands that prepare those.
 >
 > Licensed GPL-3.0, as OpenRocket is. Everything below this line is the upstream
 > OpenRocket README, unchanged.
