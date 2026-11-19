@@ -36,9 +36,10 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 $stub = Join-Path $stage "RocketSuite-Setup-stub.exe"
 Write-Host "[installer] compiling the stub"
 $cscArgs = @(
-    "/nologo", "/optimize+", "/target:exe", "/platform:anycpu",
+    "/nologo", "/optimize+", "/target:winexe", "/platform:anycpu",
     "/out:$stub",
     "/r:System.IO.Compression.dll", "/r:System.IO.Compression.FileSystem.dll",
+    "/r:System.Windows.Forms.dll",
     "packaging\windows\installer\Program.cs"
 )
 & $csc @cscArgs

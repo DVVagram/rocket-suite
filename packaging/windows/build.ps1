@@ -101,6 +101,7 @@ Or pass -VendorJar <path>, or -AllowMissingVendorJar to build anyway.
 
 # --- launcher and notes ------------------------------------------------------
 Copy-Item "packaging\windows\RocketSuite.bat" "$dist\RocketSuite.bat" -Force
+Copy-Item "packaging\windows\RocketSuite.vbs" "$dist\RocketSuite.vbs" -Force
 Copy-Item "packaging\windows\README.txt" "$dist\README.txt" -Force
 Copy-Item "packaging\windows\uninstall.cmd" "$dist\uninstall.cmd" -Force
 Copy-Item "packaging\windows\setup.cmd" "$dist\setup.cmd" -Force

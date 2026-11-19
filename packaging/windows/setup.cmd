@@ -35,7 +35,7 @@ rmdir /s /q "%UNPACK%"
 :verify
 rem robocopy's exit code is a bitmask where 8 means "some files skipped", which is
 rem normal, so the install is judged by what is actually there afterwards.
-if not exist "%DEST%\RocketSuite.bat" goto failed
+if not exist "%DEST%\RocketSuite.vbs" goto failed
 if not exist "%DEST%\runtime\python\python.exe" goto failed
 if not exist "%DEST%\app\swing-24.12-all.jar" goto failed
 
@@ -45,9 +45,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$programs = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs';" ^
   "New-Item -ItemType Directory -Force -Path (Join-Path $programs 'Rocket Suite') | Out-Null;" ^
   "$s = $ws.CreateShortcut((Join-Path $programs 'Rocket Suite\Rocket Suite.lnk'));" ^
-  "$s.TargetPath = (Join-Path $dest 'RocketSuite.bat'); $s.WorkingDirectory = $dest; $s.Save();" ^
+  "$s.TargetPath = (Join-Path $dest 'RocketSuite.vbs'); $s.WorkingDirectory = $dest; $s.Save();" ^
   "$d = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Rocket Suite.lnk'));" ^
-  "$d.TargetPath = (Join-Path $dest 'RocketSuite.bat'); $d.WorkingDirectory = $dest; $d.Save();"
+  "$d.TargetPath = (Join-Path $dest 'RocketSuite.vbs'); $d.WorkingDirectory = $dest; $d.Save();"
 if errorlevel 1 goto failed
 
 reg add "%KEY%" /v "DisplayName" /d "Rocket Suite" /f >nul
@@ -61,7 +61,7 @@ reg add "%KEY%" /v "NoRepair" /d 1 /t REG_DWORD /f >nul
 echo.
 echo Rocket Suite is installed. Start it from the Start menu, or from the desktop
 echo shortcut. Settings and designs are kept when it is uninstalled.
-start "" "%DEST%\RocketSuite.bat"
+start "" "%DEST%\RocketSuite.vbs"
 exit /b 0
 
 :failed
