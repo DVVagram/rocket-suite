@@ -81,10 +81,22 @@ def _convert(params: dict) -> dict:
     )
 
 
+def _fly(params: dict) -> dict:
+    """Fly converted parameters in RocketPy (S4)."""
+    if not isinstance(params.get("parameters"), dict):
+        raise ValueError("fly needs 'parameters' as returned by convert")
+
+    sys.path.insert(0, str(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from sidecar import flight
+
+    return flight.fly(params["parameters"], overrides=params.get("overrides") or {})
+
+
 METHODS = {
     "health": _health,
     "echo": lambda params: {"echo": params},
     "convert": _convert,
+    "fly": _fly,
 }
 
 

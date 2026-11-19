@@ -129,7 +129,8 @@ custom plotting library, FreeCAD integration.
 | S1 | **done** | `RocketPyTabTest` passes: 4 tabs, the 4th is `RocketPyPanel`, OpenRocket's three tabs unchanged; the rebuilt app still launches (18.7 s cold) |
 | S2 | **done** | sidecar protocol (7 pytest cases) and `SidecarClient` (5 JUnit cases, 0 skipped) pass against the real Python process, including a killed-process case that must raise rather than hang; the app still builds and launches (18.7 s, 597 MB) |
 | S3 | **done** | the open document is saved by OpenRocket's own saver (with flight data forced on) and converted by RocketSerializer in the sidecar: 5 bundled examples convert (0.061–11.08 kg), every loss listed — ARC's `lowerstageseparation` parachute trigger is reported rather than dropped; 13 pytest cases and `DesignConversionTest` (save → reload, save → convert, 0 skipped) pass; the app still launches (no exceptions) |
-| S4 | next | RocketPy flight from the converted parameters |
+| S4 | **done** | `fly` builds Environment/Motor/Rocket/nose/fins/parachutes from the parameters only and flies: apogee **319.9 m at 7.8 s**, max speed 94.7 m/s (Mach 0.279), off the rail 17.3 m/s, flight time 93.5 s, 7.3 s of wall time; 19 pytest cases (6 of them flight) and 9 JUnit cases pass |
+| S5 | next | separation enforced end to end, plus the configuration-selection fix |
 
 Build and run (from the repository root, JDK 17 in `tools/`):
 
@@ -147,6 +148,21 @@ has no motors or presets.
 ---
 
 ## 4. Risks
+
+### What S4 measured, and what it exposed
+
+Flying the same example gives numbers that **disagree with OpenRocket's stored
+flight**: RocketPy says 319.9 m apogee and 94.7 m/s; the stored results say
+50.6 m and 29.2 m/s. The thrust curve in the file has a total impulse of
+8.8 N·s (a C6-class motor), which cannot produce 50 m apogee in a 61 g rocket,
+so the stored flight does not describe the motor in the design. This is the
+known S5 defect - RocketSerializer pairs a converted motor with another
+configuration's stored flight - now visible in the product, and it is why the
+panel labels OpenRocket's numbers "reference only" and says so explicitly.
+
+RocketPy's own static margin from the converted geometry (8.5 cal) also differs
+from OpenRocket's stored 3.2-3.2 cal; the converted fin position is the first
+suspect and stays open until S5.
 
 | Risk | Mitigation |
 | --- | --- |

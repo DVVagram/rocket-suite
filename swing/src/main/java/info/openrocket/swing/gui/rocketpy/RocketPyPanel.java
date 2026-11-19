@@ -52,10 +52,12 @@ public class RocketPyPanel extends JPanel {
     private final JLabel statusLabel = new JLabel("Not connected");
     private final JButton connectButton = new JButton("Connect to RocketPy");
     private final JButton convertButton = new JButton("Convert design");
+    private final JButton flyButton = new JButton("Fly");
     private final JTextArea logArea = new JTextArea();
 
     private SidecarClient client;
     private JsonObject lastConversion;
+    private JsonObject lastFlight;
 
     public RocketPyPanel(OpenRocketDocument document) {
         super(new BorderLayout(0, 8));
@@ -71,7 +73,10 @@ public class RocketPyPanel extends JPanel {
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         convertButton.setEnabled(false);
         convertButton.setToolTipText("Send the design as it currently stands to RocketPy, without saving it");
+        flyButton.setEnabled(false);
+        flyButton.setToolTipText("Fly the converted design in RocketPy");
         buttons.add(convertButton);
+        buttons.add(flyButton);
         buttons.add(connectButton);
         statusBar.add(buttons, BorderLayout.EAST);
 
@@ -97,6 +102,7 @@ public class RocketPyPanel extends JPanel {
 
         connectButton.addActionListener(e -> toggleConnection());
         convertButton.addActionListener(e -> convertDesign());
+        flyButton.addActionListener(e -> flyDesign());
 
         add(header, BorderLayout.NORTH);
         add(new JScrollPane(logArea), BorderLayout.CENTER);
@@ -149,6 +155,7 @@ public class RocketPyPanel extends JPanel {
                             + " · Python " + health.getString("python", "?"));
                     connectButton.setText("Disconnect");
                     convertButton.setEnabled(true);
+                    flyButton.setEnabled(lastConversion != null);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     setStatus("Not connected");
@@ -168,7 +175,122 @@ public class RocketPyPanel extends JPanel {
         }
         connectButton.setText("Connect to RocketPy");
         convertButton.setEnabled(false);
+        flyButton.setEnabled(false);
         setStatus("Not connected");
+    }
+
+    /** The last RocketPy flight result, or null if the design has not been flown. */
+    public JsonObject getLastFlight() {
+        return lastFlight;
+    }
+
+    /** Fly the converted parameters. Nothing is re-read from the design here. */
+    public void flyDesign() {
+        SidecarClient active = client;
+        JsonObject conversion = lastConversion;
+        if (active == null || !active.isRunning() || conversion == null) {
+            appendLog("Convert the design before flying it.");
+            return;
+        }
+
+        flyButton.setEnabled(false);
+        setStatus("Flying…");
+
+        new SwingWorker<JsonObject, String>() {
+            @Override
+            protected JsonObject doInBackground() throws Exception {
+                JsonObject params = Json.createObjectBuilder()
+                        .add("parameters", conversion.getJsonObject("parameters"))
+                        .build();
+                return active.request("fly", params, CONVERT_TIMEOUT);
+            }
+
+            @Override
+            protected void process(List<String> chunks) {
+                chunks.forEach(RocketPyPanel.this::appendLog);
+            }
+
+            @Override
+            protected void done() {
+                flyButton.setEnabled(isConnected() && lastConversion != null);
+                try {
+                    lastFlight = get();
+                    showFlight(lastFlight);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    setStatus("Flight interrupted");
+                } catch (ExecutionException e) {
+                    setStatus("Flight failed");
+                    appendLog("RocketPy could not fly this design: " + rootCause(e.getCause()));
+                }
+            }
+        }.execute();
+    }
+
+    private void showFlight(JsonObject result) {
+        JsonObject flight = result.getJsonObject("flight");
+        JsonObject report = result.getJsonObject("report");
+
+        StringBuilder text = new StringBuilder("\n\n=== RocketPy flight ===\n");
+        if (flight != null) {
+            appendNumber(text, "apogee", flight, "apogee_m", "m", 1);
+            appendNumber(text, "apogee time", flight, "apogee_time_s", "s", 2);
+            appendNumber(text, "max speed", flight, "max_speed_m_s", "m/s", 1);
+            appendNumber(text, "max Mach", flight, "max_mach", "", 3);
+            appendNumber(text, "max acceleration", flight, "max_acceleration_m_s2", "m/s²", 1);
+            appendNumber(text, "off the rail", flight, "out_of_rail_velocity_m_s", "m/s", 1);
+            appendNumber(text, "flight time", flight, "flight_time_s", "s", 2);
+            appendNumber(text, "static margin", flight, "static_margin_calibers", "cal", 2);
+        }
+        for (int i = 0; result.getJsonArray("events") != null && i < result.getJsonArray("events").size(); i++) {
+            JsonObject event = result.getJsonArray("events").getJsonObject(i);
+            text.append("\n  ").append(event.getString("name", "event"));
+            if (event.containsKey("time_s") && !event.isNull("time_s")) {
+                text.append(String.format(Locale.ROOT, " at %.2f s", event.getJsonNumber("time_s").doubleValue()));
+            }
+            if (event.containsKey("altitude_m") && !event.isNull("altitude_m")) {
+                text.append(String.format(Locale.ROOT, ", %.1f m", event.getJsonNumber("altitude_m").doubleValue()));
+            }
+        }
+        if (report != null) {
+            appendList(text, "Modelling approximations", report.getJsonArray("approximations"));
+            appendList(text, "Not modelled", report.getJsonArray("unsupported"));
+        }
+        appendReference(text);
+        appendLog(text.toString());
+
+        setStatus(flight == null ? "Flown" : String.format(Locale.ROOT,
+                "Flown · apogee %.1f m", flight.getJsonNumber("apogee_m").doubleValue()));
+    }
+
+    /**
+     * OpenRocket's stored flight, shown beside RocketPy's and labelled as such.
+     * It is never sent to the flight engine: it is here so a difference is
+     * visible instead of hidden.
+     */
+    private void appendReference(StringBuilder text) {
+        JsonObject reference = lastConversion == null ? null : lastConversion.getJsonObject("reference");
+        if (reference == null || reference.isEmpty()) {
+            return;
+        }
+        text.append("\n\nOpenRocket's own stored flight - reference only, not used by RocketPy:");
+        appendNumber(text, "apogee", reference, "max_altitude", "m", 1);
+        appendNumber(text, "max speed", reference, "max_velocity", "m/s", 1);
+        appendNumber(text, "flight time", reference, "flight_time", "s", 2);
+        text.append("\n  If these disagree, check which configuration OpenRocket stored the "
+                + "flight for; the stored results are not necessarily the motor flown here.");
+    }
+
+    private static void appendNumber(StringBuilder text, String label, JsonObject values,
+            String key, String unit, int decimals) {
+        if (!values.containsKey(key) || values.isNull(key)) {
+            return;
+        }
+        text.append("\n  ").append(label).append(": ")
+                .append(String.format(Locale.ROOT, "%." + decimals + "f", values.getJsonNumber(key).doubleValue()));
+        if (!unit.isEmpty()) {
+            text.append(' ').append(unit);
+        }
     }
 
     /** The last successful conversion, or null if the design has not been converted yet. */
@@ -216,6 +338,7 @@ public class RocketPyPanel extends JPanel {
                 convertButton.setEnabled(isConnected());
                 try {
                     lastConversion = get();
+                    flyButton.setEnabled(true);
                     showConversion(lastConversion);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();

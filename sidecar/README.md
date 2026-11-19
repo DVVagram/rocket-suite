@@ -38,8 +38,7 @@ Newline-delimited JSON, one frame per line, UTF-8.
 | `health` | — | protocol, engine, python, platform, rocketpy/rocketserializer versions |
 | `echo` | anything | `{"echo": <params>}` |
 | `convert` | `{"ork": "<path>", "java_home"?: "...", "jar"?: "..."}` | `parameters`, `reference`, `report`, `design` |
-
-`fly` arrives in S4.
+| `fly` | `{"parameters": <as returned by convert>, "overrides"?: {...}}` | `flight`, `events`, `conditions`, `report`, `seconds` |
 
 ## Conversion
 
@@ -79,6 +78,29 @@ curl -L -o vendor/openrocket/OpenRocket-23.09.jar \
 The JVM comes from `"java_home"`, `ROCKETSUITE_JAVA_HOME`, `JAVA_HOME`, a
 `tools/*jre*` directory in the repository, or the OS. The application passes
 its own `java.home`, so a working OpenRocket is enough of a JVM.
+
+## Flight
+
+`fly` builds RocketPy objects from `parameters` alone and runs the flight:
+`Environment` (standard atmosphere), `SolidMotor` (from the converted thrust
+curve and grain data), `Rocket` (mass, inertia, centre of mass, drag curve),
+nose cone, trapezoidal fins and parachutes, then `Flight` with OpenRocket's rail
+length, inclination and heading.
+
+It never imports OpenRocket, JPype or RocketSerializer, and a test asserts that:
+the flight cannot read OpenRocket's stored results even by accident. The
+parameters dictionary it receives has already had `stored_results` removed.
+
+What the flight reports rather than hides, in `report.approximations`:
+
+* **still air** - OpenRocket's average wind is not applied, so the two flights
+  are not conflated;
+* **one drag curve** - OpenRocket's whole-flight drag is used for powered and
+  unpowered flight alike;
+* **motor** - flown as a solid motor with the grain geometry OpenRocket reports.
+
+Unsupported geometry (elliptical fins, wings, pods) is listed in
+`report.unsupported` and is not in the flight.
 
 ### Flight data must be in the file
 

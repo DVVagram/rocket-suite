@@ -134,6 +134,41 @@ public class DesignConversionTest {
     }
 
     @Test
+    public void convertedDesignFliesAndReportsItsAssumptions() throws Exception {
+        Optional<Path> python = SidecarClient.findPython();
+        Optional<Path> script = SidecarClient.findScript();
+        assumeTrue(python.isPresent() && script.isPresent(), "no Python or sidecar script");
+        assumeTrue(example != null, "no bundled example design");
+        assumeTrue(conversionJar().isPresent(), "no OpenRocket jar for the converter");
+
+        OpenRocketDocument document = new GeneralRocketLoader(example.toFile()).load();
+        Path staged = DocumentExport.saveToTemp(document);
+        try (SidecarClient client = new SidecarClient(python.get(), script.get(), line -> { })) {
+            client.start();
+            JsonObject converted = client.request("convert", Json.createObjectBuilder()
+                    .add("ork", staged.toString())
+                    .add("java_home", System.getProperty("java.home"))
+                    .build(), Duration.ofSeconds(240));
+
+            JsonObject flown = client.request("fly", Json.createObjectBuilder()
+                    .add("parameters", converted.getJsonObject("parameters"))
+                    .build(), Duration.ofSeconds(300));
+
+            JsonObject flight = flown.getJsonObject("flight");
+            assertTrue(flight.getJsonNumber("apogee_m").doubleValue() > 0.0, "apogee must be positive");
+            assertTrue(flight.getJsonNumber("max_speed_m_s").doubleValue() > 0.0, "speed must be positive");
+            assertTrue(flight.getJsonNumber("flight_time_s").doubleValue()
+                    >= flight.getJsonNumber("apogee_time_s").doubleValue(),
+                    "the flight must last at least until apogee");
+            assertFalse(flown.getJsonArray("events").isEmpty(), "the flight must report its events");
+            assertFalse(flown.getJsonObject("report").getJsonArray("approximations").isEmpty(),
+                    "a flight must state what it approximated");
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+    }
+
+    @Test
     public void exportWritesAFileOpenRocketCanReadBack() throws Exception {
         OpenRocketDocument document = OpenRocketDocumentFactory.createNewRocket();
         Path staged = DocumentExport.saveToTemp(document);
