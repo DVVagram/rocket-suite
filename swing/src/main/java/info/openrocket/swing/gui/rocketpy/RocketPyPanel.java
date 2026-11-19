@@ -395,7 +395,8 @@ public class RocketPyPanel extends JPanel {
                 publish("configuration: " + lastConfigurationName);
                 JsonObjectBuilder params = Json.createObjectBuilder()
                         .add("ork", staged.toString())
-                        .add("java_home", System.getProperty("java.home"));
+                        .add("java_home", System.getProperty("java.home"))
+                        .add("fin_offsets", DocumentExport.finAxialOffsets(document));
                 String configuration = DocumentExport.selectedConfigurationId(document);
                 if (configuration != null) {
                     params.add("configuration", configuration);
