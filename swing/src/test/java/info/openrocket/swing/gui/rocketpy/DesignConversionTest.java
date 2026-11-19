@@ -24,6 +24,7 @@ import com.google.inject.Provider;
 import com.google.inject.util.Modules;
 
 import jakarta.json.Json;
+import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 
 import info.openrocket.core.database.MotorDatabaseLoader;
@@ -105,12 +106,14 @@ public class DesignConversionTest {
         Path staged = DocumentExport.saveToTemp(document);
         assumeTrue(Files.size(staged) > 0, "OpenRocket produced no design file");
 
+        JsonArray finOffsets = DocumentExport.finAxialOffsets(document);
         try (SidecarClient client = new SidecarClient(python.get(), script.get(), line -> { })) {
             client.start();
             JsonObject result = client.request("convert", Json.createObjectBuilder()
                     .add("ork", staged.toString())
                     .add("java_home", System.getProperty("java.home"))
                     .add("configuration", DocumentExport.selectedConfigurationId(document))
+                    .add("fin_offsets", finOffsets)
                     .build(), Duration.ofSeconds(240));
 
             JsonObject parameters = result.getJsonObject("parameters");
@@ -124,6 +127,27 @@ public class DesignConversionTest {
             assertNotNull(fins, "the example design has trapezoidal fins");
             assertEquals(3, fins.values().iterator().next().asJsonObject().getInt("number"),
                     "a 3FNC design has three fins");
+
+            boolean checkedFinOffset = false;
+            for (int i = 0; i < finOffsets.size(); i++) {
+                JsonObject offset = finOffsets.getJsonObject(i);
+                if (!"trapezoidal".equals(offset.getString("type"))) {
+                    continue;
+                }
+                boolean matched = false;
+                for (jakarta.json.JsonValue value : fins.values()) {
+                    JsonObject fin = value.asJsonObject();
+                    if (offset.getString("name").equals(fin.getString("name"))) {
+                        assertEquals(offset.getJsonNumber("axial_offset_m").doubleValue(),
+                                fin.getJsonNumber("position").doubleValue(), 1.0e-9,
+                                "the converted fin position must come from OpenRocket");
+                        matched = true;
+                    }
+                }
+                assertTrue(matched, "every OpenRocket trapezoidal fin offset must match a converted fin");
+                checkedFinOffset = true;
+            }
+            assertTrue(checkedFinOffset, "the example must include a trapezoidal fin offset");
 
             JsonObject chute = parameters.getJsonObject("parachutes").values().iterator().next().asJsonObject();
             assertEquals("apogee", chute.getString("deploy_event"),
