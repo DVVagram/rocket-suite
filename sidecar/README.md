@@ -33,11 +33,14 @@ Newline-delimited JSON, one frame per line, UTF-8.
 
 ## Methods
 
+* `fin_offsets` is optional Java supplied design metadata: ordered `{type, name, axial_offset_m}` entries read from OpenRocket's `FinSet.getAxialOffset()`. The converter applies them only when fin counts, types, names, and order match; otherwise it retains RocketSerializer's values and reports the fallback.
+
+
 | Method | Params | Result |
 | --- | --- | --- |
 | `health` | — | protocol, engine, python, platform, rocketpy/rocketserializer versions |
 | `echo` | anything | `{"echo": <params>}` |
-| `convert` | `{"ork": "<path>", "java_home"?: "...", "jar"?: "..."}` | `parameters`, `reference`, `report`, `design` |
+| `convert` | `{"ork": "<path>", "java_home"?: "...", "jar"?: "...", "fin_offsets"?: [...]}` | `parameters`, `reference`, `report`, `design` |
 | `fly` | `{"parameters": <as returned by convert>, "overrides"?: {...}}` | `flight`, `events`, `conditions`, `report`, `seconds` |
 | `plot` | `{"kinds"?: ["trajectory_3d", ...]}` | `figures` (PNG paths or per-plot errors), `directory` |
 | `eval` | `{"code": "<python>"}` | `output` (what it printed), `names` (what is bound) |
