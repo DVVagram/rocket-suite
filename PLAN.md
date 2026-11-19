@@ -170,27 +170,24 @@ anywhere in the flight - reached after burnout, when the propellant is gone -
 rather than the margin at ignition. It reports the launch value now, with the
 maximum kept beside it. That alone explains 8.46 against 7.59 for the example.
 
-The fin positions are a separate question, and the answer so far is that they are
-not ours to recompute. Reading them out of the design's component tree fixed the
-example (fins at 0.281 m, inside its 0.332 m airframe, instead of 0.508 m behind
-the tail) but broke other designs, because OpenRocket positions components against
-the front, middle or back of a *stage*, and a stage's length is not written in the
-file - only derivable, sometimes circularly. Measured against OpenRocket's own
-recorded centre of pressure over eleven bundled designs, the reconstruction was
-worse than RocketSerializer's positions (mean error 0.35 m against 0.24 m) and
-wrong by up to 1 m on multi-stage designs. So it was withdrawn rather than
-shipped: the converter's fin positions are used unchanged.
+The earlier Python reconstruction of fin stations was withdrawn after it
+performed worse than RocketSerializer across eleven designs (mean CP error 0.35 m
+against 0.24 m, with errors up to 1 m on multi-stage designs). The current
+implementation instead passes each fin's `FinSet.getAxialOffset()` from the live
+OpenRocket document to the sidecar as design input. The converter replaces
+serializer positions only when type, name, count, and order match; otherwise it
+keeps the serializer value and reports that fallback. This new path still needs
+the eleven-design comparison rerun before its accuracy is claimed.
 
 **Also measured while checking the above, not fixed:** one bundled example, `Pods--powered with recovery deployment.ork`, fails inside RocketSerializer with `list index out of range`. Our side of the bridge turns that into a clear conversion error that the tab shows; nothing is swallowed and no design half-converts.
 
-What that leaves, all of it visible in the product. The converter's fin
-positions still put the example's fins 0.227 m past its tail, so its converted
-centre of pressure is 0.452 m against OpenRocket's 0.300 m and its static margin
-reads 7.59 cal against OpenRocket's 2.1 - it looks more stable than it is.
-RocketPy also has no surface for a body tube, so it takes lift from the nose and
-the fins only. Both limits are stated in every flight report (`report.unsupported`)
-rather than hidden, and both are open. Apogee is unaffected: 319.9 m against
-OpenRocket's 319.8 m.
+The body-tube limitation remains: RocketPy takes lift from the nose and
+fins only, so its centre of pressure and static margin can differ from
+OpenRocket's. The historical 7.59 cal versus 2.1 cal example comparison used the
+serializer fin positions; the new OpenRocket offset path must be measured before
+that comparison is updated. Body-tube behavior remains listed in each flight's
+unsupported report. Apogee agreement is a separate measurement and is not changed
+by this geometry correction.
 
 `test_static_margin_is_the_figure_at_launch` holds the launch-versus-maximum
 distinction down, and `test_flight_reports_its_assumptions` checks that the
@@ -227,7 +224,7 @@ is the remaining open item, and it no longer affects the apogee comparison.
 | RocketSerializer needs a design that has been simulated in OpenRocket | the simulation tab is right beside the RocketPy tab; the tab states the requirement and offers to run it |
 | Drag input coupling | OpenRocket's drag curve is labelled as design data; a constant-Cd alternative is selectable |
 | RocketPy plots are matplotlib images in a Swing tab | PNG first; data export available; interactive plotting only if it proves necessary |
-| RocketPy models lift from the nose and fins only - no body tube - and takes the converter's fin positions as given, so its centre of pressure and static margin can differ from OpenRocket's | both facts are stated in the flight report on every run; the numbers measured across eleven designs are above, and recomputing the fin positions from the design file was tried and withdrawn |
+| RocketPy models lift from the nose and fins only - no body tube - so its centre of pressure and static margin can differ from OpenRocket's | body-tube limitation is stated in each flight report; fin offsets now come from OpenRocket where fin type/name/order validation succeeds, with serializer fallback reported |
 | Two runtimes to ship | jlink JRE + embedded CPython, measured in S7 |
 
 ## 5. Repository state
