@@ -15,12 +15,21 @@
 > * `swing/src/main/java/info/openrocket/swing/gui/rocketpy/` - the tab itself
 > * `PLAN.md` - stages, what has been measured, what is still open
 >
-> **Install it** (Windows): run `dist\RocketSuite-Setup.exe`, or unzip
-> `dist\RocketSuite-portable.zip` anywhere and double-click `RocketSuite.bat`.
-> Neither needs Java or Python installed: a linked Java 17 runtime and a Python
-> with RocketPy travel inside. 554 MB installed, 297 MB for either download, and
-> the window opens in 9-11 s. Rebuild with `packaging\windows\build.ps1` and then
-> `packaging\windows\make-installer.ps1`.
+> **Download and install (Windows):**
+>
+> **[RocketSuite-Setup.exe](https://github.com/DVVagram/e8b0cc00-e4cb-454a-9f04-a7e057cd0b15/releases/latest/download/RocketSuite-Setup.exe)**
+> - 297 MB, from [the latest release](https://github.com/DVVagram/e8b0cc00-e4cb-454a-9f04-a7e057cd0b15/releases/latest).
+>
+> Double-click it. It installs for the current user - no administrator rights, no
+> Java and no Python needed, because a linked Java 17 runtime and a Python with
+> RocketPy are inside. It adds Start menu and desktop shortcuts and an entry in
+> Apps and features, and takes 554 MB installed. The window opens in 9-11 s.
+> The installer is unsigned, so SmartScreen will ask once: *More info* then
+> *Run anyway*.
+>
+> To build it yourself instead: `packaging\windows\build.ps1` makes the portable
+> folder and `RocketSuite-portable.zip` (unzip anywhere, run `RocketSuite.bat`),
+> then `packaging\windows\make-installer.ps1` makes the installer from that zip.
 >
 > **Or run it from source** (JDK 17 and a Python 3.12 virtual environment):
 >
