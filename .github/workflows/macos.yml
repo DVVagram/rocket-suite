@@ -1,8 +1,13 @@
 name: macOS app
 
-# Builds RocketSuite.app and RocketSuite.dmg on real Macs, so a Mac user gets the
-# same one-download install as Windows instead of a script to run. Runs on both
-# architectures: Apple Silicon (macos-14) and Intel (macos-13).
+# Builds RocketSuite.app and RocketSuite.dmg on a real Mac, so a Mac user gets the
+# same one-download install as Windows instead of a script to run.
+#
+# macos-15 is the runner this account can actually get: GitHub's arm64 macOS
+# runners need a Team plan, and macos-13 (Intel) sits in the queue for hours.
+# The image is therefore x86_64, which runs natively on Intel and under Rosetta on
+# Apple Silicon. packaging/macos/build-app.sh builds an arm64 image natively on any
+# Apple Silicon Mac in one command.
 on:
   workflow_dispatch:
   push:
@@ -18,21 +23,18 @@ permissions:
 
 jobs:
   build:
-    name: ${{ matrix.arch }}
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-15
     timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-14
-            arch: arm64
-          - runner: macos-13
-            arch: x86_64
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Note the architecture
+        id: arch
+        run: |
+          echo "arch=$(uname -m)" >> "$GITHUB_OUTPUT"
+          sw_vers
 
       - uses: actions/setup-java@v4
         with:
@@ -90,7 +92,7 @@ jobs:
           print("rocketpy", flight._version())
           print("APOGEE", round(f["apogee_m"], 2))
           print("STATIC_MARGIN", round(f["static_margin_calibers"], 3))
-          print("NOTE", len(converted["report"]["unsupported"]), "limits reported")
+          print("LIMITS_REPORTED", len(converted["report"]["unsupported"]))
           assert 300 < f["apogee_m"] < 340, f["apogee_m"]
           assert f["static_margin_calibers"] > 0
           PY
@@ -111,22 +113,23 @@ jobs:
           fi
           tail -5 app.log || true
 
-      - name: Name the disk image for this architecture
-        run: mv dist/RocketSuite.dmg "dist/RocketSuite-1.0-${{ matrix.arch }}.dmg"
+      - name: Name the disk image
+        run: mv dist/RocketSuite.dmg "dist/RocketSuite-1.0-${{ steps.arch.outputs.arch }}.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RocketSuite-${{ matrix.arch }}
-          path: dist/RocketSuite-1.0-${{ matrix.arch }}.dmg
+          name: RocketSuite-macos-${{ steps.arch.outputs.arch }}
+          path: dist/RocketSuite-1.0-${{ steps.arch.outputs.arch }}.dmg
           if-no-files-found: error
 
       - name: Attach it to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          DMG="dist/RocketSuite-1.0-${{ steps.arch.outputs.arch }}.dmg"
           if gh release view v1.0.0 >/dev/null 2>&1; then
-            gh release upload v1.0.0 "dist/RocketSuite-1.0-${{ matrix.arch }}.dmg" --clobber
-            echo "source: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+            gh release upload v1.0.0 "$DMG" --clobber
+            echo "attached $DMG from commit $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "no v1.0.0 release; the disk image is in the run's artifacts" >> "$GITHUB_STEP_SUMMARY"
+            echo "no v1.0.0 release; the disk image is in this run's artifacts" >> "$GITHUB_STEP_SUMMARY"
           fi
