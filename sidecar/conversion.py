@@ -215,6 +215,58 @@ def _stored_flight(bs) -> dict:
     return reference
 
 
+def _apply_java_fin_offsets(settings: dict, offsets: list[dict] | None, report: dict) -> None:
+    """Replace serializer fin stations with OpenRocket's resolved axial offsets."""
+    groups = {
+        "trapezoidal": settings.get("trapezoidal_fins") or {},
+        "elliptical": settings.get("elliptical_fins") or {},
+    }
+    for fins in groups.values():
+        for fin in fins.values():
+            fin["position_source"] = "RocketSerializer"
+
+    if offsets is None:
+        if any(groups.values()):
+            report["warnings"].append(
+                "OpenRocket fin offsets were not supplied; RocketSerializer fin positions "
+                "are retained and may be inaccurate for staged designs."
+            )
+        return
+
+    by_type = {kind: [entry for entry in offsets if entry.get("type") == kind] for kind in groups}
+    for fin_type, fins in groups.items():
+        ordered_fins = [value for _, value in sorted(fins.items(), key=lambda item: int(item[0]))]
+        supplied = by_type[fin_type]
+        if len(ordered_fins) != len(supplied) or any(
+            fin.get("name") != entry.get("name")
+            for fin, entry in zip(ordered_fins, supplied)
+        ):
+            if ordered_fins:
+                report["warnings"].append(
+                    f"OpenRocket fin offsets for {fin_type} sets did not match the converted "
+                    "design by count and name; RocketSerializer positions were retained."
+                )
+            continue
+
+        try:
+            positions = [float(entry["axial_offset_m"]) for entry in supplied]
+        except (KeyError, TypeError, ValueError):
+            report["warnings"].append(
+                f"OpenRocket returned an invalid axial offset for {fin_type} fins; "
+                "RocketSerializer positions were retained."
+            )
+            continue
+
+        for fin, position in zip(ordered_fins, positions):
+            fin["position"] = position
+            fin["position_source"] = "OpenRocket FinSet.getAxialOffset()"
+        if ordered_fins:
+            report["approximations"].append(
+                f"Axial offsets for {fin_type} fin sets come from OpenRocket's "
+                "FinSet.getAxialOffset(), in metres."
+            )
+
+
 def _design_summary(settings: dict) -> dict:
     rocket = settings.get("rocket") or {}
     return {
@@ -230,7 +282,7 @@ def _design_summary(settings: dict) -> dict:
 
 
 def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = None,
-            configuration: str | None = None) -> dict:
+            configuration: str | None = None, fin_offsets: list[dict] | None = None) -> dict:
     """Convert a saved .ork file and report exactly what happened.
 
     ``configuration`` is OpenRocket's id for the configuration the user is
@@ -309,6 +361,7 @@ def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = 
         raise RuntimeError(f"RocketSerializer could not convert this design: {exc}") from exc
 
     _normalise_parachutes(settings, report)
+    _apply_java_fin_offsets(settings, fin_offsets, report)
     report["unsupported"].extend(_unsupported_structures(bs))
 
     simulation = bs.find("simulation")
