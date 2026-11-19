@@ -37,9 +37,19 @@ def _convert_and_fly(design: Path) -> dict:
         "import json, sys",
         f"sys.path.insert(0, {str(REPO)!r})",
         "from pathlib import Path",
-        "from sidecar import conversion, flight",
+        "import builtins",
+        "from sidecar import conversion",
         f"converted = conversion.convert({str(design)!r})",
+        "blocked = ('jpype', 'orhelper', 'rocketserializer', 'net.sf.openrocket')",
+        "original_import = builtins.__import__",
+        "def blocked_import(name, *args, **kwargs):",
+        "    if any(name == item or name.startswith(item + '.') for item in blocked):",
+        "        raise AssertionError('blocked OpenRocket dependency imported: ' + name)",
+        "    return original_import(name, *args, **kwargs)",
+        "builtins.__import__ = blocked_import",
+        "from sidecar import flight",
         "result = flight.fly(converted['parameters'])",
+        "result['openrocket_imports_blocked'] = True",
         "result['reference'] = converted['reference']",
         "result['parameters'] = {'rocket': converted['parameters']['rocket']}",
         f"Path({str(out_file)!r}).write_text(json.dumps(result), encoding='utf-8')",
@@ -125,8 +135,7 @@ def test_openrocket_reference_is_not_used(flown):
     assert "stored_results" not in flown["parameters"]["rocket"]
 
 
-def test_flight_module_never_imports_openrocket():
-    """Separation contract: the flight cannot reach OpenRocket's calculations."""
-    source = (REPO / "sidecar" / "flight.py").read_text(encoding="utf-8")
-    for forbidden in ("jpype", "orhelper", "rocketserializer", "net.sf.openrocket"):
-        assert forbidden not in source, f"sidecar/flight.py must not reference {forbidden}"
+@needs_runtime
+def test_flight_runs_with_openrocket_dependencies_blocked(flown):
+    """The actual RocketPy flight runs while every conversion dependency is blocked."""
+    assert flown["openrocket_imports_blocked"] is True
