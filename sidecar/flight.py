@@ -112,6 +112,12 @@ def _rocket(values: dict, report: dict):
         "the same design. OpenRocket's own flight, where the file stores one, is the figure "
         "to compare against stability."
     )
+    report["unsupported"].append(
+        "The fin positions are the converter's, taken from RocketSerializer, and are not "
+        "checked against the design's own geometry; on some designs they sit behind the "
+        "tail. Read the stability below as RocketPy's result for the geometry it was given, "
+        "not as a verdict on the design."
+    )
     return Rocket(**_subset(kwargs, _accepted(Rocket.__init__)))
 
 

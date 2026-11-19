@@ -165,24 +165,37 @@ panel labels OpenRocket's numbers "reference only" and says so explicitly.
 RocketPy's own static margin from the converted geometry (8.5 cal) also differed
 from OpenRocket's 3.2 cal.
 
-**Fixed after S7, and it was two defects, not physics.** The figure the tab showed
-was the *largest* margin anywhere in the flight - reached after burnout, when the
-propellant is gone - rather than the margin at ignition; it reports the launch
-value now. The converted fin position was wrong as well: RocketSerializer placed
-the example's fins at 0.508 m on a 0.332 m rocket, behind the tail, because
-OpenRocket stores that offset as `method="bottom"` against the body tube's aft
-end and it was read as a distance from the nose. Fins are now placed from the
-design's own component tree, accumulated down the tree, giving 0.281 m; RocketPy's
-centre of pressure moved from 0.452 m to 0.263 m, against OpenRocket's 0.300 m.
+**Partly fixed after S7.** The figure the tab showed was the *largest* margin
+anywhere in the flight - reached after burnout, when the propellant is gone -
+rather than the margin at ignition. It reports the launch value now, with the
+maximum kept beside it. That alone explains 8.46 against 7.59 for the example.
 
-What remains is a modelling limit, and the tab now states it instead of hiding it:
-RocketPy has no surface for a body tube, so it computes lift from the nose and the
-fins only. Its centre of pressure is therefore forward of OpenRocket's and its
-static margin is smaller - 0.04 cal against OpenRocket's 2.1 cal for this design -
-which is why `report.unsupported` says so on every flight. Apogee is unchanged at
-319.9 m. `test_fins_sit_where_the_design_puts_them`,
-`test_fins_stay_inside_the_airframe` and `test_static_margin_is_the_figure_at_launch`
-hold all three points down.
+The fin positions are a separate question, and the answer so far is that they are
+not ours to recompute. Reading them out of the design's component tree fixed the
+example (fins at 0.281 m, inside its 0.332 m airframe, instead of 0.508 m behind
+the tail) but broke other designs, because OpenRocket positions components against
+the front, middle or back of a *stage*, and a stage's length is not written in the
+file - only derivable, sometimes circularly. Measured against OpenRocket's own
+recorded centre of pressure over eleven bundled designs, the reconstruction was
+worse than RocketSerializer's positions (mean error 0.35 m against 0.24 m) and
+wrong by up to 1 m on multi-stage designs. So it was withdrawn rather than
+shipped: the converter's fin positions are used unchanged.
+
+**Also measured while checking the above, not fixed:** one bundled example, `Pods--powered with recovery deployment.ork`, fails inside RocketSerializer with `list index out of range`. Our side of the bridge turns that into a clear conversion error that the tab shows; nothing is swallowed and no design half-converts.
+
+What that leaves, all of it visible in the product. The converter's fin
+positions still put the example's fins 0.227 m past its tail, so its converted
+centre of pressure is 0.452 m against OpenRocket's 0.300 m and its static margin
+reads 7.59 cal against OpenRocket's 2.1 - it looks more stable than it is.
+RocketPy also has no surface for a body tube, so it takes lift from the nose and
+the fins only. Both limits are stated in every flight report (`report.unsupported`)
+rather than hidden, and both are open. Apogee is unaffected: 319.9 m against
+OpenRocket's 319.8 m.
+
+`test_static_margin_is_the_figure_at_launch` holds the launch-versus-maximum
+distinction down, and `test_flight_reports_its_assumptions` checks that the
+body-tube limit is stated. The fin-position assertions went with the override
+they tested.
 
 Two more defects surfaced while testing the packaged build. `SwingPreferences`
 resolved its node name in a static initialiser, so the property a test sets
@@ -191,7 +204,7 @@ isolation only worked by luck of ordering; the name is now read on every use.
 And `Icons.getScaledIcon` threw a `NullPointerException` on the empty icons that
 OpenRocket's own test mode produces, which made the tab test fail depending on
 which class ran first; it now returns the icon unscaled. The full suite is green:
-29 pytest cases and 36 JUnit cases.
+27 pytest cases and 36 JUnit cases.
 
 **Resolved in S5.** The mismatch was not a physics error: RocketSerializer read
 the thrust curve from the last simulation in the file and the stored summary
@@ -214,7 +227,7 @@ is the remaining open item, and it no longer affects the apogee comparison.
 | RocketSerializer needs a design that has been simulated in OpenRocket | the simulation tab is right beside the RocketPy tab; the tab states the requirement and offers to run it |
 | Drag input coupling | OpenRocket's drag curve is labelled as design data; a constant-Cd alternative is selectable |
 | RocketPy plots are matplotlib images in a Swing tab | PNG first; data export available; interactive plotting only if it proves necessary |
-| RocketPy models lift from the nose and fins only - no body tube - so its static margin reads lower than OpenRocket's for the same design | stated in the flight report on every run and documented here; the centre of pressure itself is now correct to 4 cm, since the fin position bug behind it is fixed |
+| RocketPy models lift from the nose and fins only - no body tube - and takes the converter's fin positions as given, so its centre of pressure and static margin can differ from OpenRocket's | both facts are stated in the flight report on every run; the numbers measured across eleven designs are above, and recomputing the fin positions from the design file was tried and withdrawn |
 | Two runtimes to ship | jlink JRE + embedded CPython, measured in S7 |
 
 ## 5. Repository state

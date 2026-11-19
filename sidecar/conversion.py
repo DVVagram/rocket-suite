@@ -115,121 +115,6 @@ def _open_session(java_home: str | None, jar: Path):
     return _session
 
 
-# Components with a length of their own, and the ones that carry fins.
-_LENGTHED = {
-    "nosecone", "bodytube", "transition", "tubecoupler", "innertube", "engineblock",
-    "centeringring", "bulkhead", "masscomponent", "shockcord", "parachute", "launchlug",
-    "railbutton", "trapezoidfinset", "ellipticalfinset", "freeformfinset",
-}
-_FIN_TAGS = {"trapezoidfinset", "ellipticalfinset", "freeformfinset"}
-
-
-def _number_or(node, tag: str, default: float = 0.0) -> float:
-    element = node.find(tag)
-    try:
-        return float(element.text) if element is not None else default
-    except (TypeError, ValueError):
-        return default
-
-
-def _axial_offset(node) -> tuple[str, float]:
-    """OpenRocket's offset of a component inside its parent, and how it is measured."""
-    element = node.find("axialoffset")
-    if element is None:
-        return "top", 0.0
-    method = (element.get("method") or "top").lower()
-    try:
-        value = float(element.text)
-    except (TypeError, ValueError):
-        value = 0.0
-    return method, value
-
-
-def _fin_leading_edges(bs) -> list[dict]:
-    """Absolute leading-edge position of every fin set, from the nose tip.
-
-    RocketSerializer reported the fins of the bundled example at 0.508 m on a
-    0.400 m rocket - behind the tail, which moved the centre of pressure back by
-    15 cm and the static margin from 2 cal to 7.6 cal. The saved design says
-    ``<axialoffset method="bottom">0.0``: the fins sit flush with the end of their
-    body tube. OpenRocket measures each offset against the parent's front, middle
-    or back, so the absolute position has to be accumulated down the component
-    tree rather than read off one element.
-    """
-    found = []
-
-    def walk(node, parent_start: float, parent_length: float) -> None:
-        for child in node.find_all(recursive=False):
-            # A stage and the subcomponents wrapper hold components but have no
-            # position of their own, so they pass their parent's frame through.
-            if child.name in ("subcomponents", "stage"):
-                walk(child, parent_start, parent_length)
-                continue
-            if child.name not in _LENGTHED:
-                continue
-
-            method, value = _axial_offset(child)
-            length = _number_or(child, "length")
-            if child.name in _FIN_TAGS:
-                chord = _number_or(child, "rootchord") or _number_or(child, "height")
-                if method == "bottom":
-                    start = parent_start + parent_length - value - chord
-                elif method == "middle":
-                    start = parent_start + parent_length / 2 + value - chord / 2
-                else:
-                    start = parent_start + value
-                name = child.find("name")
-                found.append({
-                    "tag": child.name,
-                    "name": name.text.strip() if name is not None else None,
-                    "position": round(start, 6),
-                    "root_chord": chord,
-                })
-            else:
-                if method == "bottom":
-                    start = parent_start + parent_length - value - length
-                elif method == "middle":
-                    start = parent_start + parent_length / 2 + value - length / 2
-                else:
-                    start = parent_start + value
-
-            walk(child, start, length)
-
-    stage = bs.find("rocket")
-    if stage is not None:
-        walk(stage, 0.0, _number_or(stage, "length"))
-    return found
-
-
-def _apply_fin_positions(settings: dict, bs, report: dict) -> None:
-    """Replace the converted fin positions with the ones the design specifies."""
-    edges = _fin_leading_edges(bs)
-    if not edges:
-        return
-
-    groups = {
-        "trapezoidal_fins": [e for e in edges if e["tag"] == "trapezoidfinset"],
-        "elliptical_fins": [e for e in edges if e["tag"] == "ellipticalfinset"],
-    }
-    for key, candidates in groups.items():
-        converted = settings.get(key) or {}
-        if not converted or not candidates:
-            continue
-        items = list(converted.values())
-        for index, fin in enumerate(items):
-            if index >= len(candidates):
-                break
-            truth = candidates[index]
-            current = fin.get("position")
-            if current is None or abs(float(current) - truth["position"]) > 0.001:
-                fin["position"] = truth["position"]
-                report["approximations"].append(
-                    f"Fin set '{fin.get('name') or index}' was converted at "
-                    f"{current} m from the nose; the design's own geometry puts its "
-                    f"leading edge at {truth['position']} m, which is what the flight uses."
-                )
-
-
 def _normalise_parachutes(settings: dict, report: dict) -> None:
     """Make OpenRocket deployment triggers expressible in RocketPy.
 
@@ -424,7 +309,6 @@ def convert(ork_path: str, java_home: str | None = None, jar_path: str | None = 
         raise RuntimeError(f"RocketSerializer could not convert this design: {exc}") from exc
 
     _normalise_parachutes(settings, report)
-    _apply_fin_positions(settings, bs, report)
     report["unsupported"].extend(_unsupported_structures(bs))
 
     simulation = bs.find("simulation")
