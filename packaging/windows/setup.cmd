@@ -68,5 +68,4 @@ exit /b 0
 echo.
 echo The installation failed. Unzip the portable package somewhere and run
 echo RocketSuite.bat directly instead: it needs nothing installed.
-pause
 exit /b 1
