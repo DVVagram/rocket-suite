@@ -1,0 +1,142 @@
+name: Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [desktop-fork]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: installer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Install uv and Python 3.12
+        shell: pwsh
+        run: |
+          irm https://astral.sh/uv/install.ps1 | iex
+          "$env:USERPROFILE\.local\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          uv python install 3.12
+
+      - name: Install RocketPy and test dependencies
+        shell: pwsh
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv\Scripts\python.exe rocketpy==1.13.0 rocketserializer==0.2.0 pytest
+          .venv\Scripts\python.exe -c "import rocketpy, rocketserializer, jpype, numpy, scipy, matplotlib; print('stack ok')"
+
+      - name: Fetch the converter's OpenRocket jar
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .integration-src\RocketSerializer | Out-Null
+          curl.exe -fL --retry 3 -o .integration-src\RocketSerializer\OpenRocket-23.09.jar https://github.com/openrocket/openrocket/releases/download/release-23.09/OpenRocket-23.09.jar
+
+      - name: Test the RocketPy sidecar and physics boundary
+        shell: pwsh
+        run: .venv\Scripts\python.exe -m pytest sidecar\tests -q
+
+      - name: Verify Java to RocketPy fin offsets
+        shell: pwsh
+        env:
+          ROCKETSUITE_PYTHON: ${{ github.workspace }}\.venv\Scripts\python.exe
+          ROCKETSUITE_ORK_JAR: ${{ github.workspace }}\.integration-src\RocketSerializer\OpenRocket-23.09.jar
+        run: .\gradlew.bat --no-daemon --console=plain :swing:test --tests "info.openrocket.swing.gui.rocketpy.DesignConversionTest"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\.gradle\caches
+            ~\.gradle\wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Build the application jar
+        shell: pwsh
+        run: |
+          .\gradlew.bat --no-daemon --console=plain :core:jar
+          .\gradlew.bat --no-daemon --console=plain :swing:shadowJar -x test
+
+      - name: Build the Windows bundle and installer
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\build.ps1 -Jdk "$env:JAVA_HOME"
+          powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\make-installer.ps1
+          Get-Item dist\RocketSuite-Setup.exe | Select-Object Name,Length
+
+      - name: Smoke test the packaged application
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $PWD "dist\RocketSuite"
+          $env:ROCKETSUITE_JAVA_HOME = Join-Path $bundle "runtime\jre"
+          $env:ROCKETSUITE_ORK_JAR = Join-Path $bundle "app\vendor\OpenRocket-23.09.jar"
+          $env:JAVA_HOME = $env:ROCKETSUITE_JAVA_HOME
+          $env:PATH = (Join-Path $bundle "runtime\jre\bin") + ";" + $env:PATH
+          $env:PYTHONHOME = Join-Path $bundle "runtime\python"
+          $env:PYTHONPATH = Join-Path $bundle "lib\python"
+          $env:PYTHONNOUSERSITE = "1"
+          $python = Join-Path $bundle "runtime\python\python.exe"
+          $app = Join-Path $bundle "app"
+          $script = @'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path(r"$app")))
+          from sidecar import conversion, flight
+          design = Path("core/src/main/resources/datafiles/examples/A simple model rocket.ork")
+          converted = conversion.convert(str(design))
+          result = flight.fly(converted["parameters"])
+          apogee = result["flight"]["apogee_m"]
+          print("APOGEE", round(apogee, 2))
+          assert 300 < apogee < 340, apogee
+          '@
+          $script | & $python -
+          if ($LASTEXITCODE -ne 0) { throw "packaged RocketPy smoke flight failed" }
+          $before = @(Get-Process javaw -ErrorAction SilentlyContinue | ForEach-Object Id)
+          & (Join-Path $bundle "RocketSuite.bat")
+          Start-Sleep -Seconds 30
+          $launched = @(Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $before })
+          if (-not $launched) { throw "packaged application did not stay open" }
+          $launched | Stop-Process -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RocketSuite-Windows
+          path: dist\RocketSuite-Setup.exe
+          if-no-files-found: error
+
+      - name: Publish the latest Windows installer
+        if: github.ref == 'refs/heads/desktop-fork'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $currentSha = gh api "repos/$env:GITHUB_REPOSITORY/commits/desktop-fork" --jq .sha
+          if ($currentSha -ne $env:GITHUB_SHA) {
+            Write-Host "A newer source commit exists; leaving the release asset untouched."
+            exit 0
+          }
+          $release = "v1.0.0"
+          $releaseId = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$release" --jq .id
+          if ($LASTEXITCODE -ne 0) { throw "release $release was not found" }
+          $assetId = gh api "repos/$env:GITHUB_REPOSITORY/releases/$releaseId/assets" --paginate --jq '.[] | select(.name == "RocketSuite-Setup.exe") | .id'
+          if ($assetId) {
+            gh api --method DELETE "repos/$env:GITHUB_REPOSITORY/releases/assets/$assetId"
+            if ($LASTEXITCODE -ne 0) { throw "could not replace the existing Windows installer" }
+          }
+          gh release upload $release "dist\RocketSuite-Setup.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Windows installer upload failed" }
+          "Published RocketSuite-Setup.exe from $env:GITHUB_SHA" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
