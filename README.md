@@ -34,6 +34,7 @@
 > **Or run it from source** (JDK 17 and a Python 3.12 virtual environment):
 >
 > ```bash
+> git submodule update --init --recursive   # the motor and preset database
 > ./gradlew :swing:shadowJar
 > java -cp swing/build/libs/swing-24.12-all.jar info.openrocket.swing.startup.OpenRocket
 > ```
@@ -41,11 +42,30 @@
 > The converter needs an OpenRocket 22/23 jar (24.12 renamed the packages it uses)
 > and a JVM; see `sidecar/README.md` for the exact search order and how to set it.
 >
-> **macOS**: `packaging/macos/build-app.sh` links the same runtime, copies a
-> standalone Python and the stack, and wraps it all in `RocketSuite.app` plus a
-> `.dmg`. It has not been run yet - it was written on Windows - so the first Mac
-> build is the test. The app is unsigned, so Gatekeeper will ask for a
-> right-click > Open, or `xattr -dr com.apple.quarantine /Applications/RocketSuite.app`.
+> **macOS:** download the image for your Mac from
+> [the latest release](https://github.com/DVVagram/rocket-suite/releases/latest) -
+> `RocketSuite-1.0-arm64.dmg` for Apple Silicon, `RocketSuite-1.0-x86_64.dmg` for
+> Intel. Open it, drag **Rocket Suite** into *Applications*, then right-click the
+> app and choose **Open** the first time. Nothing else to install: the Java
+> runtime and Python are inside the app. The app is ad-hoc signed, not notarised,
+> so Gatekeeper stops the first launch; the read-me in the disk image carries the
+> one-line alternative:
+>
+> ```bash
+> xattr -dr com.apple.quarantine "/Applications/Rocket Suite.app"
+> ```
+>
+> Those images are built by `.github/workflows/macos.yml` on GitHub's own Macs, one
+> per architecture, and the same smoke test runs there as on Windows: the bundled
+> Python converts the example design and flies it, then the app is started and has
+> to still be running 40 s later. Nobody has yet driven the RocketPy tab by hand on
+> a Mac, so that is the remaining check.
+>
+> To build it yourself on a Mac instead,
+> `packaging/macos/build-app.sh` takes a JDK 17, a standalone CPython and the
+> venv's site-packages, links the runtime, signs the bundle ad hoc and writes the
+> `.dmg` - the header of that script lists the four commands that prepare the
+> inputs.
 >
 > Licensed GPL-3.0, as OpenRocket is. Everything below this line is the upstream
 > OpenRocket README, unchanged.

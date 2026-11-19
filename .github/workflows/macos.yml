@@ -1,0 +1,132 @@
+name: macOS app
+
+# Builds RocketSuite.app and RocketSuite.dmg on real Macs, so a Mac user gets the
+# same one-download install as Windows instead of a script to run. Runs on both
+# architectures: Apple Silicon (macos-14) and Intel (macos-13).
+on:
+  workflow_dispatch:
+  push:
+    branches: [desktop-fork]
+    paths:
+      - "packaging/macos/**"
+      - "sidecar/**"
+      - "swing/src/main/java/info/openrocket/swing/gui/rocketpy/**"
+      - ".github/workflows/macos.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Install uv and a standalone CPython
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/uv" python install 3.12
+          "$HOME/.local/bin/uv" python find 3.12
+
+      - name: Install the RocketPy stack
+        run: |
+          "$HOME/.local/bin/uv" venv --python 3.12 .venv-mac
+          "$HOME/.local/bin/uv" pip install --python .venv-mac/bin/python3 \
+            rocketpy==1.13.0 rocketserializer==0.2.0
+          .venv-mac/bin/python3 -c "import rocketpy, rocketserializer, jpype, numpy, scipy, matplotlib; print('stack ok')"
+
+      - name: Fetch the converter's OpenRocket jar
+        run: |
+          mkdir -p .integration-src/RocketSerializer
+          curl -fL --retry 3 -o .integration-src/RocketSerializer/OpenRocket-23.09.jar \
+            https://github.com/openrocket/openrocket/releases/download/release-23.09/OpenRocket-23.09.jar
+          ls -l .integration-src/RocketSerializer/OpenRocket-23.09.jar
+
+      - name: Build the application jar
+        run: ./gradlew --no-daemon --console=plain :swing:shadowJar -x test
+
+      - name: Build the app and the disk image
+        run: |
+          ./packaging/macos/build-app.sh \
+            --jdk "$JAVA_HOME" \
+            --python "$("$HOME/.local/bin/uv" python find 3.12)" \
+            --site-packages .venv-mac/lib/python3.12/site-packages
+
+      - name: Smoke test the bundled Python and JVM
+        run: |
+          APP="dist/RocketSuite.app/Contents/Resources/RocketSuite"
+          ROCKETSUITE_JAVA_HOME="$APP/runtime/jre" \
+          ROCKETSUITE_ORK_JAR="$APP/app/vendor/OpenRocket-23.09.jar" \
+          PYTHONHOME="$APP/runtime/python" PYTHONPATH="$APP/lib/python" \
+          PYTHONNOUSERSITE=1 \
+          "$APP/runtime/python/bin/python3" - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, ".")
+          from sidecar import conversion, flight
+
+          design = Path("core/src/main/resources/datafiles/examples/A simple model rocket.ork")
+          converted = conversion.convert(str(design))
+          result = flight.fly(converted["parameters"])
+          f = result["flight"]
+          print("rocketpy", flight._version())
+          print("APOGEE", round(f["apogee_m"], 2))
+          print("STATIC_MARGIN", round(f["static_margin_calibers"], 3))
+          print("NOTE", len(converted["report"]["unsupported"]), "limits reported")
+          assert 300 < f["apogee_m"] < 340, f["apogee_m"]
+          assert f["static_margin_calibers"] > 0
+          PY
+
+      - name: Check the app starts
+        run: |
+          APP="dist/RocketSuite.app/Contents/MacOS/RocketSuite"
+          "$APP" > app.log 2>&1 &
+          PID=$!
+          sleep 40
+          if kill -0 "$PID" 2>/dev/null; then
+            echo "the window process is still alive after 40 s"
+            kill "$PID" || true
+          else
+            echo "the app exited before its window appeared"
+            cat app.log
+            exit 1
+          fi
+          tail -5 app.log || true
+
+      - name: Name the disk image for this architecture
+        run: mv dist/RocketSuite.dmg "dist/RocketSuite-1.0-${{ matrix.arch }}.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RocketSuite-${{ matrix.arch }}
+          path: dist/RocketSuite-1.0-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            gh release upload v1.0.0 "dist/RocketSuite-1.0-${{ matrix.arch }}.dmg" --clobber
+            echo "source: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "no v1.0.0 release; the disk image is in the run's artifacts" >> "$GITHUB_STEP_SUMMARY"
+          fi

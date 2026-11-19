@@ -12,7 +12,8 @@ param(
     [string]$Jdk = "tools\jdk-17.0.21+9",
     [string]$Python = "",
     [string]$SitePackages = ".venv\Lib\site-packages",
-    [string]$VendorJar = ".integration-src\RocketSerializer\OpenRocket-23.09.jar"
+    [string]$VendorJar = ".integration-src\RocketSerializer\OpenRocket-23.09.jar",
+    [switch]$AllowMissingVendorJar
 )
 
 $ErrorActionPreference = "Stop"
@@ -80,8 +81,20 @@ Copy-Item "sidecar" "$dist\app\sidecar" -Recurse -Force
 Get-ChildItem "$dist\app\sidecar" -Recurse -Include "__pycache__", "tests" |
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "$dist\app\vendor" | Out-Null
+# A bundle without this jar installs, opens and then fails to convert anything, so
+# it stops the build unless the caller says it is only after a throwaway bundle.
 if (-not (Test-Path $VendorJar)) {
-    Write-Warning "no OpenRocket 23 jar at $VendorJar; conversion will not work in this bundle"
+    if ($AllowMissingVendorJar) {
+        Write-Warning "no OpenRocket 23 jar at $VendorJar; conversion will not work in this bundle"
+    } else {
+        throw @"
+no converter jar at $VendorJar.
+The installer would ship a RocketPy tab that cannot convert a design, so this stops here.
+Fetch it with:
+  curl -L -o $VendorJar https://github.com/openrocket/openrocket/releases/download/release-23.09/OpenRocket-23.09.jar
+Or pass -VendorJar <path>, or -AllowMissingVendorJar to build anyway.
+"@
+    }
 } else {
     Copy-Item $VendorJar "$dist\app\vendor\OpenRocket-23.09.jar" -Force
 }
