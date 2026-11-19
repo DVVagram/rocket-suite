@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>OpenRocket — Visual Flight Simulation</title>
+	<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+	<div class="layout">
+		<aside class="sidebar">
+			<header class="brand">
+				<div class="logo">▲</div>
+				<div>
+					<h1>Visual Simulation</h1>
+					<p>Any OpenRocket design, flown with OpenRocket's own models</p>
+				</div>
+			</header>
+
+			<section class="card">
+				<h2>Design</h2>
+				<select id="designSelect"></select>
+				<div class="row">
+					<label class="file-btn">
+						Open .ork file
+						<input type="file" id="fileInput" accept=".ork,application/zip,application/xml,text/xml" hidden />
+					</label>
+					<span id="designInfo" class="muted"></span>
+				</div>
+				<div id="dropzone" class="hint">…or drag an .ork anywhere on the page</div>
+			</section>
+
+			<section class="card">
+				<h2>Configuration</h2>
+				<select id="configSelect"></select>
+				<div class="grid2">
+					<label>Wind (m/s)<input id="windSpeed" type="number" min="0" max="20" step="0.5" value="3" /></label>
+					<label>Wind from (°)<input id="windDir" type="number" min="0" max="359" step="5" value="270" /></label>
+					<label>Rail (m)<input id="rodLength" type="number" min="0.2" max="6" step="0.1" value="1.2" /></label>
+					<label>Rail angle (°)<input id="rodAngle" type="number" min="0" max="45" step="1" value="0" /></label>
+				</div>
+				<div class="row">
+					<label class="file-btn small">
+						Load motor .eng
+						<input type="file" id="engInput" accept=".eng,.rse,text/plain" hidden />
+					</label>
+					<label class="check"><input id="markersToggle" type="checkbox" checked /> CP/CG</label>
+				</div>
+			</section>
+
+			<section class="card">
+				<h2>Flight results</h2>
+				<div id="summary"></div>
+			</section>
+
+			<section class="card">
+				<h2>Warnings</h2>
+				<div id="warnings"></div>
+			</section>
+		</aside>
+
+		<main class="stage">
+			<canvas id="view"></canvas>
+			<div id="hud"></div>
+			<div id="status"></div>
+			<div class="controls">
+				<button id="playBtn" class="primary">Pause</button>
+				<button id="restartBtn">Restart</button>
+				<input id="timeline" type="range" min="0" max="10" step="0.01" value="0" />
+				<select id="speedSelect">
+					<option value="0.25">0.25×</option>
+					<option value="0.5">0.5×</option>
+					<option value="1" selected>1×</option>
+					<option value="2">2×</option>
+					<option value="4">4×</option>
+				</select>
+				<select id="cameraSelect">
+					<option value="chase" selected>Chase</option>
+					<option value="orbit">Orbit</option>
+					<option value="pad">Pad</option>
+					<option value="ground">Tracking</option>
+					<option value="onboard">Onboard</option>
+				</select>
+			</div>
+		</main>
+	</div>
+	<script type="module" src="src/app.js"></script>
+</body>
+</html>
