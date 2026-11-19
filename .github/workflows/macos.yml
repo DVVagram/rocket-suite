@@ -10,14 +10,13 @@ on:
   workflow_dispatch:
   push:
     branches: [desktop-fork]
-    paths:
-      - "packaging/macos/**"
-      - "sidecar/**"
-      - "swing/src/main/java/info/openrocket/swing/gui/rocketpy/**"
-      - ".github/workflows/macos.yml"
 
 permissions:
   contents: write
+
+concurrency:
+  group: installer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -143,15 +142,23 @@ jobs:
           path: dist/RocketSuite-1.0-${{ steps.arch.outputs.arch }}.dmg
           if-no-files-found: error
 
-      - name: Attach it to the release
-        if: github.event_name == 'workflow_dispatch'
+      - name: Publish the latest macOS installer
+        if: github.ref == 'refs/heads/desktop-fork'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          DMG="dist/RocketSuite-1.0-${{ steps.arch.outputs.arch }}.dmg"
-          if gh release view v1.0.0 >/dev/null 2>&1; then
-            gh release upload v1.0.0 "$DMG" --clobber
-            echo "attached $DMG from commit $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "no v1.0.0 release; the disk image is in this run's artifacts" >> "$GITHUB_STEP_SUMMARY"
+          CURRENT_SHA=$(gh api "repos/$GITHUB_REPOSITORY/commits/desktop-fork" --jq .sha)
+          if [[ "$CURRENT_SHA" != "$GITHUB_SHA" ]]; then
+            echo "A newer source commit exists; leaving the release asset untouched."
+            exit 0
           fi
+          RELEASE="v1.0.0"
+          DMG="dist/RocketSuite-1.0-${{ steps.arch.outputs.arch }}.dmg"
+          ASSET_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE" --jq .id)
+          EXISTING_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/$ASSET_ID/assets" --paginate \
+            --jq '.[] | select(.name == "RocketSuite-1.0-arm64.dmg") | .id' | head -n 1)
+          if [[ -n "$EXISTING_ID" ]]; then
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$EXISTING_ID"
+          fi
+          gh release upload "$RELEASE" "$DMG"
+          echo "published $DMG from $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
