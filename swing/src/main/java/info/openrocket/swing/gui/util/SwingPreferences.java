@@ -102,8 +102,12 @@ public class SwingPreferences extends ApplicationPreferences {
 	
 	/**
 	 * The node name to use in the Java preferences storage.
+	 * <p>
+	 * Overridable with {@code -Dopenrocket.preferences.node=...} so a test run (or a
+	 * portable installation) can keep its settings out of the user's own node.
 	 */
-	private static final String NODENAME = (DEBUG ? "OpenRocket-debug" : "OpenRocket");
+	private static final String NODENAME = System.getProperty("openrocket.preferences.node",
+			DEBUG ? "OpenRocket-debug" : "OpenRocket");
 	
 	private Preferences PREFNODE;
 	

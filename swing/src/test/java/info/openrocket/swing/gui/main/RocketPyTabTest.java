@@ -25,6 +25,7 @@ import info.openrocket.core.l10n.Translator;
 import info.openrocket.core.plugin.PluginModule;
 import info.openrocket.core.preferences.ApplicationPreferences;
 import info.openrocket.core.startup.Application;
+import info.openrocket.swing.IsolatedPreferences;
 import info.openrocket.swing.ServicesForTesting;
 import info.openrocket.swing.gui.rocketpy.RocketPyPanel;
 import info.openrocket.swing.gui.util.SwingPreferences;
@@ -41,6 +42,9 @@ public class RocketPyTabTest {
 
     @BeforeAll
     public static void setUp() {
+        // Before any preferences exist, so the user's own settings stay untouched.
+        IsolatedPreferences.install();
+
         Module application = new ServicesForTesting();
         Module swingServices = new AbstractModule() {
             @Override
@@ -52,6 +56,12 @@ public class RocketPyTabTest {
         Injector injector = Guice.createInjector(Modules.override(application).with(swingServices),
                 new PluginModule());
         Application.setInjector(injector);
+    }
+
+    @Test
+    public void testsDoNotWriteToTheUsersPreferences() {
+        assertEquals(IsolatedPreferences.TEST_NODE, new SwingPreferences().getNodename(),
+                "a test run must not touch the user's OpenRocket settings");
     }
 
     @Test

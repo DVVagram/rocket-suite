@@ -181,7 +181,7 @@ is the remaining open item, and it no longer affects the apogee comparison.
 | --- | --- |
 | B1 needs an **OpenRocket 22/23 jar** next to the 24.12 app, because RocketSerializer uses the pre-rename `net.sf.openrocket.*` packages | documented and searched for (`vendor/openrocket`, `ROCKETSUITE_ORK_JAR`); S8/B2 removes the need entirely |
 | OpenRocket stores only simulation **summaries** by default, which the converter cannot use | the exported copy forces `saveSimulationData`; a design with no simulation is reported, not silently flown |
-| Tests that install `SwingPreferences` write to the real user preferences, which can change what the application shows on the next start (e.g. the welcome dialog instead of a blank rocket) | noted; a temporary preferences directory in tests is the fix if it becomes a nuisance |
+| Tests that install `SwingPreferences` write to the real user preferences, which changed what the application showed on the next start | fixed: `SwingPreferences` now takes its node name from `-Dopenrocket.preferences.node`, and the tests set it to `OpenRocket-tests` (a test asserts the node in use). Redirecting `java.util.prefs.userRoot` was tried first and does nothing on Windows, where preferences are registry-backed |
 | The app is a **fork of OpenRocket** | keep the diff small and isolated (one tab + one bridge class); rebase onto upstream releases; GPL-3.0 with sources (accepted) |
 | Second JVM in B1 | acceptable at first; B2 removes it; the memory cost is measured, not guessed |
 | RocketSerializer needs a design that has been simulated in OpenRocket | the simulation tab is right beside the RocketPy tab; the tab states the requirement and offers to run it |

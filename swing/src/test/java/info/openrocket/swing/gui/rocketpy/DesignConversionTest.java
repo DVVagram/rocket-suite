@@ -37,6 +37,7 @@ import info.openrocket.core.l10n.Translator;
 import info.openrocket.core.plugin.PluginModule;
 import info.openrocket.core.preferences.ApplicationPreferences;
 import info.openrocket.core.startup.Application;
+import info.openrocket.swing.IsolatedPreferences;
 import info.openrocket.swing.ServicesForTesting;
 import info.openrocket.swing.gui.util.SwingPreferences;
 
@@ -55,6 +56,9 @@ public class DesignConversionTest {
 
     @BeforeAll
     public static void setUp() {
+        // Before any preferences exist, so the user's own settings stay untouched.
+        IsolatedPreferences.install();
+
         Module application = new ServicesForTesting();
         // Loading a design resolves its motor by name, so the real motor database
         // must be present: an empty one would load the design without its motor.

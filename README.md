@@ -1,3 +1,36 @@
+# Rocket Suite: OpenRocket with a RocketPy tab
+
+> **This is a fork of OpenRocket 24.12 with one added tab: RocketPy.**
+>
+> Design the rocket in OpenRocket's own interface, then switch to the **RocketPy**
+> tab to convert the design and fly it in [RocketPy](https://github.com/RocketPy-Team/RocketPy).
+> Both engines stay in their current forms. OpenRocket owns the design (geometry,
+> mass, centre of gravity, inertia, stability, thrust and drag curves); RocketPy
+> owns the flight (atmosphere, gravity, forces, trajectory, events, apogee). Only
+> design inputs cross between them, one way, and OpenRocket's own simulation
+> results are never read by RocketPy - for the same flight configuration they
+> agree: 50.1 m against 50.6 m for one motor, 319.9 m against 319.8 m for another.
+>
+> * `sidecar/` - the Python process that runs RocketPy, and its JSON protocol
+> * `swing/src/main/java/info/openrocket/swing/gui/rocketpy/` - the tab itself
+> * `PLAN.md` - stages, what has been measured, what is still open
+>
+> **Run it** (JDK 17 and a Python 3.12 virtual environment; not yet packaged into
+> an installer):
+>
+> ```bash
+> ./gradlew :swing:shadowJar
+> java -cp swing/build/libs/swing-24.12-all.jar info.openrocket.swing.startup.OpenRocket
+> ```
+>
+> The converter needs an OpenRocket 22/23 jar (24.12 renamed the packages it uses)
+> and a JVM; see `sidecar/README.md` for the exact search order and how to set it.
+>
+> Licensed GPL-3.0, as OpenRocket is. Everything below this line is the upstream
+> OpenRocket README, unchanged.
+
+---
+
 # OpenRocket 🚀
 
 OpenRocket is a free, fully featured model rocket simulator that allows you to design and simulate your rockets before actually building and flying them.
