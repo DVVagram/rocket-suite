@@ -15,8 +15,14 @@
 > * `swing/src/main/java/info/openrocket/swing/gui/rocketpy/` - the tab itself
 > * `PLAN.md` - stages, what has been measured, what is still open
 >
-> **Run it** (JDK 17 and a Python 3.12 virtual environment; not yet packaged into
-> an installer):
+> **Install it** (Windows): run `dist\RocketSuite-Setup.exe`, or unzip
+> `dist\RocketSuite-portable.zip` anywhere and double-click `RocketSuite.bat`.
+> Neither needs Java or Python installed: a linked Java 17 runtime and a Python
+> with RocketPy travel inside. 554 MB installed, 297 MB for either download, and
+> the window opens in 9-11 s. Rebuild with `packaging\windows\build.ps1` and then
+> `packaging\windows\make-installer.ps1`.
+>
+> **Or run it from source** (JDK 17 and a Python 3.12 virtual environment):
 >
 > ```bash
 > ./gradlew :swing:shadowJar
@@ -25,6 +31,12 @@
 >
 > The converter needs an OpenRocket 22/23 jar (24.12 renamed the packages it uses)
 > and a JVM; see `sidecar/README.md` for the exact search order and how to set it.
+>
+> **macOS**: `packaging/macos/build-app.sh` links the same runtime, copies a
+> standalone Python and the stack, and wraps it all in `RocketSuite.app` plus a
+> `.dmg`. It has not been run yet - it was written on Windows - so the first Mac
+> build is the test. The app is unsigned, so Gatekeeper will ask for a
+> right-click > Open, or `xattr -dr com.apple.quarantine /Applications/RocketSuite.app`.
 >
 > Licensed GPL-3.0, as OpenRocket is. Everything below this line is the upstream
 > OpenRocket README, unchanged.

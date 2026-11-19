@@ -109,3 +109,6 @@ tools/
 __pycache__/
 *.pyc
 vendor/openrocket/*.jar
+
+# Packaged bundles: hundreds of MB of build output
+dist/

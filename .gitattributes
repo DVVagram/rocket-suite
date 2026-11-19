@@ -1,0 +1,5 @@
+# Packaging scripts are run as-is from a checkout: cmd.exe needs CRLF, and a
+# shell script with CRLF fails on macOS with "/bin/bash^M: bad interpreter".
+*.sh  text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
