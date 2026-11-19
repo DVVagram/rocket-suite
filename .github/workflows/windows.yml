@@ -30,7 +30,9 @@ jobs:
         shell: pwsh
         run: |
           irm https://astral.sh/uv/install.ps1 | iex
-          "$env:USERPROFILE\.local\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          $uvPath = Join-Path $env:USERPROFILE ".local\bin"
+          $uvPath | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          $env:PATH = $uvPath + ";" + $env:PATH
           uv python install 3.12
 
       - name: Install RocketPy and test dependencies
