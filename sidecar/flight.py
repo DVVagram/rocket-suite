@@ -112,12 +112,6 @@ def _rocket(values: dict, report: dict):
         "the same design. OpenRocket's own flight, where the file stores one, is the figure "
         "to compare against stability."
     )
-    report["unsupported"].append(
-        "The fin positions are the converter's, taken from RocketSerializer, and are not "
-        "checked against the design's own geometry; on some designs they sit behind the "
-        "tail. Read the stability below as RocketPy's result for the geometry it was given, "
-        "not as a verdict on the design."
-    )
     return Rocket(**_subset(kwargs, _accepted(Rocket.__init__)))
 
 
@@ -138,7 +132,12 @@ def _nose(rocket, values: dict, report: dict) -> None:
 def _fins(rocket, parameters: dict, report: dict) -> None:
     trapezoidal = parameters.get("trapezoidal_fins") or {}
     for fin in trapezoidal.values():
-        kwargs = {key: value for key, value in fin.items() if key != "number"}
+        if fin.get("position_source") != "OpenRocket FinSet.getAxialOffset()":
+            report["warnings"].append(
+                "Fin set " + str(fin.get("name", "?")) + " still uses RocketSerializer's axial "
+                "position, which may be inaccurate for staged designs."
+            )
+        kwargs = {key: value for key, value in fin.items() if key not in {"number", "position_source"}}
         kwargs["n"] = fin.get("number", 3)
         rocket.add_trapezoidal_fins(**_subset(kwargs, _accepted(rocket.add_trapezoidal_fins)))
 
