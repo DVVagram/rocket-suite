@@ -62,8 +62,22 @@ jobs:
             https://github.com/openrocket/openrocket/releases/download/release-23.09/OpenRocket-23.09.jar
           ls -l .integration-src/RocketSerializer/OpenRocket-23.09.jar
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
+
+      # Two invocations on purpose: shadowJar resolves :core's jar through a
+      # transform, and on a clean checkout that transform runs before the jar task
+      # has produced the file it wants, so building :core first removes the race.
       - name: Build the application jar
-        run: ./gradlew --no-daemon --console=plain :swing:shadowJar -x test
+        run: |
+          ./gradlew --no-daemon --console=plain :core:jar
+          ./gradlew --no-daemon --console=plain :swing:shadowJar -x test
+          ls -l swing/build/libs/swing-24.12-all.jar
 
       - name: Build the app and the disk image
         run: |
