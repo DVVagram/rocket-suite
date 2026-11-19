@@ -71,6 +71,8 @@ public class RocketPyTabTest {
 
             assertTrue(tabs.getComponentAt(3) instanceof RocketPyPanel,
                     "the fourth tab must be the RocketPy panel");
+            assertNotNull(((RocketPyPanel) tabs.getComponentAt(3)).getResultsPanel(),
+                    "the RocketPy tab must carry RocketPy's plots and console");
             assertTrue(tabs.getComponentAt(0) instanceof DesignPanel,
                     "OpenRocket's design tab must be untouched");
         } finally {

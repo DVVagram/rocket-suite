@@ -131,7 +131,8 @@ custom plotting library, FreeCAD integration.
 | S3 | **done** | the open document is saved by OpenRocket's own saver (with flight data forced on) and converted by RocketSerializer in the sidecar: 5 bundled examples convert (0.061–11.08 kg), every loss listed — ARC's `lowerstageseparation` parachute trigger is reported rather than dropped; 13 pytest cases and `DesignConversionTest` (save → reload, save → convert, 0 skipped) pass; the app still launches (no exceptions) |
 | S4 | **done** | `fly` builds Environment/Motor/Rocket/nose/fins/parachutes from the parameters only and flies: apogee **319.9 m at 7.8 s**, max speed 94.7 m/s (Mach 0.279), off the rail 17.3 m/s, flight time 93.5 s, 7.3 s of wall time; 19 pytest cases (6 of them flight) and 9 JUnit cases pass |
 | S5 | **done** | the selected configuration is sliced out before conversion, so motor, geometry and stored flight come from the same flight: A8 → OpenRocket 50.6 m / RocketPy **50.1 m (−1.0 %)**, C6 → 319.8 m / **319.9 m (+0.1 %)**; the reference is recovered from the recorded points because 24.12 stopped writing the summary attributes; 23 pytest and 9 JUnit cases pass |
-| S6 | next | full RocketPy reach: console, plots, Compare |
+| S6 | **done** | RocketPy's own plots are rendered to PNG and shown in the tab (trajectory 3D, kinematics, aero forces, energy, pressure), the console runs real Python against the same `environment`/`motor`/`rocket`/`flight` (`print(flight.apogee)` → 319.9), and each run is compared with the previous one and with OpenRocket's stored flight; 26 pytest and 9 JUnit cases pass |
+| S7 | next | packaging: jlink JRE, embedded Python, installer |
 
 Build and run (from the repository root, JDK 17 in `tools/`):
 

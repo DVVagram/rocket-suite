@@ -39,6 +39,8 @@ Newline-delimited JSON, one frame per line, UTF-8.
 | `echo` | anything | `{"echo": <params>}` |
 | `convert` | `{"ork": "<path>", "java_home"?: "...", "jar"?: "..."}` | `parameters`, `reference`, `report`, `design` |
 | `fly` | `{"parameters": <as returned by convert>, "overrides"?: {...}}` | `flight`, `events`, `conditions`, `report`, `seconds` |
+| `plot` | `{"kinds"?: ["trajectory_3d", ...]}` | `figures` (PNG paths or per-plot errors), `directory` |
+| `eval` | `{"code": "<python>"}` | `output` (what it printed), `names` (what is bound) |
 
 ## Conversion
 
@@ -134,6 +136,22 @@ What the flight reports rather than hides, in `report.approximations`:
 
 Unsupported geometry (elliptical fins, wings, pods) is listed in
 `report.unsupported` and is not in the flight.
+
+## Plots and console
+
+`plot` renders RocketPy's own plotting functions (`flight.plots.trajectory_3d()`
+and friends) to PNG through the Agg backend; nothing is re-implemented, so the
+tab shows what RocketPy draws. A plot that fails is reported individually and
+does not lose the flight.
+
+`eval` runs Python against the objects the last flight was built from:
+`environment`, `motor`, `rocket`, `flight`, plus `np`, `plt` and `rocketpy`. It
+executes whatever it is given - the sidecar runs on the user's own machine, on
+their own design, and the console is meant to be the full RocketPy API rather
+than a curated subset. Print output is returned as text; figures are available
+through `plt` but are not captured automatically.
+
+Both refuse to run before a flight, rather than silently building a second one.
 
 ### Flight data must be in the file
 

@@ -213,6 +213,66 @@ def _max_function(function):
         return None
 
 
+# The last objects built, so plots and user code work on the same flight
+# instead of silently re-flying a different one.
+_SESSION: dict = {}
+
+
+def last_flight():
+    return _SESSION.get("flight")
+
+
+def plots(kinds: list[str] | None = None) -> dict:
+    """Render RocketPy's own plots for the last flight to PNG files."""
+    import tempfile
+
+    from sidecar import plots as plotting
+
+    if not _SESSION:
+        raise ValueError("no flight has been run yet; fly the design first")
+    output = tempfile.mkdtemp(prefix="rocketsuite-plots-")
+    figures = plotting.render(_SESSION["flight"], output, kinds)
+    return {"figures": figures, "directory": output}
+
+
+def evaluate(code: str) -> dict:
+    """Run RocketPy code against the last flight.
+
+    This is the full RocketPy API on the user's own machine: the namespace holds
+    the environment, motor, rocket and flight that were just built, plus numpy
+    and matplotlib. It runs whatever is asked, which is the point.
+    """
+    import contextlib
+    import io
+
+    if not _SESSION:
+        raise ValueError("no flight has been run yet; fly the design first")
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import rocketpy
+
+    namespace = {
+        "rocketpy": rocketpy,
+        "np": np,
+        "plt": plt,
+        "environment": _SESSION.get("environment"),
+        "motor": _SESSION.get("motor"),
+        "rocket": _SESSION.get("rocket"),
+        "flight": _SESSION.get("flight"),
+    }
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        exec(code, namespace)  # noqa: S102 - deliberate: the user's own code
+
+    return {"output": buffer.getvalue(), "names": sorted(
+        name for name in namespace if name not in {"rocketpy", "np", "plt"})}
+
+
 def fly(parameters: dict, overrides: dict | None = None) -> dict:
     """Fly the converted design in RocketPy and return numbers, events and caveats."""
     overrides = overrides or {}
@@ -262,6 +322,15 @@ def fly(parameters: dict, overrides: dict | None = None) -> dict:
         "static_margin_calibers": _number(getattr(rocket.static_margin, "average", None))
         or _max_function(rocket.static_margin),
     }
+
+    _SESSION.clear()
+    _SESSION.update({
+        "environment": environment,
+        "motor": motor,
+        "rocket": rocket,
+        "flight": flight,
+        "parameters": parameters,
+    })
 
     return {
         "flight": summary,

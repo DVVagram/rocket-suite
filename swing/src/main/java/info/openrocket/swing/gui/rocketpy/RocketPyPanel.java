@@ -55,10 +55,15 @@ public class RocketPyPanel extends JPanel {
     private final JButton convertButton = new JButton("Convert design");
     private final JButton flyButton = new JButton("Fly");
     private final JTextArea logArea = new JTextArea();
+    private final RocketPyResultsPanel resultsPanel = new RocketPyResultsPanel(this::appendLog);
+
+    private record FlightRun(JsonObject flight, JsonObject plots) {
+    }
 
     private SidecarClient client;
     private JsonObject lastConversion;
     private JsonObject lastFlight;
+    private JsonObject previousFlight;
     private String lastConfigurationName;
 
     public RocketPyPanel(OpenRocketDocument document) {
@@ -106,8 +111,18 @@ public class RocketPyPanel extends JPanel {
         convertButton.addActionListener(e -> convertDesign());
         flyButton.addActionListener(e -> flyDesign());
 
+        javax.swing.JSplitPane split = new javax.swing.JSplitPane(
+                javax.swing.JSplitPane.VERTICAL_SPLIT, new JScrollPane(logArea), resultsPanel);
+        split.setResizeWeight(0.62);
+        split.setBorder(null);
+
         add(header, BorderLayout.NORTH);
-        add(new JScrollPane(logArea), BorderLayout.CENTER);
+        add(split, BorderLayout.CENTER);
+    }
+
+    /** The plots and console area, exposed for tests. */
+    public RocketPyResultsPanel getResultsPanel() {
+        return resultsPanel;
     }
 
     public OpenRocketDocument getDocument() {
@@ -158,6 +173,7 @@ public class RocketPyPanel extends JPanel {
                     connectButton.setText("Disconnect");
                     convertButton.setEnabled(true);
                     flyButton.setEnabled(lastConversion != null);
+                    resultsPanel.setClient(client);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     setStatus("Not connected");
@@ -178,6 +194,7 @@ public class RocketPyPanel extends JPanel {
         connectButton.setText("Connect to RocketPy");
         convertButton.setEnabled(false);
         flyButton.setEnabled(false);
+        resultsPanel.setClient(null);
         setStatus("Not connected");
     }
 
@@ -198,13 +215,21 @@ public class RocketPyPanel extends JPanel {
         flyButton.setEnabled(false);
         setStatus("Flying…");
 
-        new SwingWorker<JsonObject, String>() {
+        new SwingWorker<FlightRun, String>() {
             @Override
-            protected JsonObject doInBackground() throws Exception {
+            protected FlightRun doInBackground() throws Exception {
                 JsonObject params = Json.createObjectBuilder()
                         .add("parameters", conversion.getJsonObject("parameters"))
                         .build();
-                return active.request("fly", params, CONVERT_TIMEOUT);
+                JsonObject flown = active.request("fly", params, CONVERT_TIMEOUT);
+
+                JsonObject figures = null;
+                try {
+                    figures = active.request("plot", Json.createObjectBuilder().build(), CONVERT_TIMEOUT);
+                } catch (SidecarClient.SidecarException e) {
+                    publish("RocketPy's plots are unavailable: " + e.getMessage());
+                }
+                return new FlightRun(flown, figures);
             }
 
             @Override
@@ -216,7 +241,9 @@ public class RocketPyPanel extends JPanel {
             protected void done() {
                 flyButton.setEnabled(isConnected() && lastConversion != null);
                 try {
-                    lastFlight = get();
+                    FlightRun run = get();
+                    lastFlight = run.flight();
+                    resultsPanel.showPlots(run.plots());
                     showFlight(lastFlight);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -258,11 +285,44 @@ public class RocketPyPanel extends JPanel {
             appendList(text, "Modelling approximations", report.getJsonArray("approximations"));
             appendList(text, "Not modelled", report.getJsonArray("unsupported"));
         }
+        appendComparison(text, flight);
         appendReference(text, flight == null ? null : flight.getJsonNumber("apogee_m").doubleValue());
         appendLog(text.toString());
 
+        previousFlight = flight;
+
         setStatus(flight == null ? "Flown" : String.format(Locale.ROOT,
                 "Flown · apogee %.1f m", flight.getJsonNumber("apogee_m").doubleValue()));
+    }
+
+    /** RocketPy against its own previous run, so a changed design is visible. */
+    private void appendComparison(StringBuilder text, JsonObject flight) {
+        if (previousFlight == null || flight == null) {
+            return;
+        }
+        text.append("\n\nCompared with the previous RocketPy run in this session:");
+        appendChange(text, "apogee", previousFlight, flight, "apogee_m", "m", 1);
+        appendChange(text, "max speed", previousFlight, flight, "max_speed_m_s", "m/s", 1);
+        appendChange(text, "flight time", previousFlight, flight, "flight_time_s", "s", 2);
+    }
+
+    private static void appendChange(StringBuilder text, String label, JsonObject before,
+            JsonObject after, String key, String unit, int decimals) {
+        if (!before.containsKey(key) || !after.containsKey(key)) {
+            return;
+        }
+        double previous = before.getJsonNumber(key).doubleValue();
+        double current = after.getJsonNumber(key).doubleValue();
+        String direction = current > previous ? "higher" : current < previous ? "lower" : "unchanged";
+        if (previous == 0) {
+            text.append("\n  ").append(label).append(": ")
+                    .append(String.format(Locale.ROOT, "%." + decimals + "f %s", current, unit));
+            return;
+        }
+        text.append("\n  ").append(label).append(": ")
+                .append(String.format(Locale.ROOT, "%." + decimals + "f %s", current, unit))
+                .append(String.format(Locale.ROOT, " (%s, %+.1f %%)", direction,
+                        (current - previous) / previous * 100));
     }
 
     /**

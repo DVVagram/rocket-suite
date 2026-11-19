@@ -93,11 +93,31 @@ def _fly(params: dict) -> dict:
     return flight.fly(params["parameters"], overrides=params.get("overrides") or {})
 
 
+def _flight_module():
+    sys.path.insert(0, str(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from sidecar import flight
+
+    return flight
+
+
+def _plot(params: dict) -> dict:
+    return _flight_module().plots(params.get("kinds"))
+
+
+def _eval(params: dict) -> dict:
+    code = params.get("code")
+    if not code or not str(code).strip():
+        raise ValueError("eval needs 'code'")
+    return _flight_module().evaluate(code)
+
+
 METHODS = {
     "health": _health,
     "echo": lambda params: {"echo": params},
     "convert": _convert,
     "fly": _fly,
+    "plot": _plot,
+    "eval": _eval,
 }
 
 
