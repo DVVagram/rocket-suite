@@ -33,7 +33,7 @@ Newline-delimited JSON, one frame per line, UTF-8.
 
 ## Methods
 
-* `fin_offsets` is optional Java supplied design metadata: ordered `{type, name, axial_offset_m}` entries read from OpenRocket's `FinSet.getAxialOffset()`. The converter applies them only when fin counts, types, names, and order match; otherwise it retains RocketSerializer's values and reports the fallback.
+* `fin_offsets` is optional Java supplied design metadata: ordered `{type, name, axial_offset_m}` entries read from OpenRocket's `FinSet.getAxialOffset(ABSOLUTE)`, resolved from the nose in rocket coordinates. The converter applies them only when fin counts, types, names, and order match; otherwise it retains RocketSerializer's values and reports the fallback.
 
 
 | Method | Params | Result |

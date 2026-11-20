@@ -251,6 +251,8 @@ public class RocketPyPanel extends JPanel {
                 } catch (ExecutionException e) {
                     setStatus("Flight failed");
                     appendLog("RocketPy could not fly this design: " + rootCause(e.getCause()));
+                } finally {
+                    resetDeadConnection();
                 }
             }
         }.execute();
@@ -423,6 +425,7 @@ public class RocketPyPanel extends JPanel {
                     setStatus("Conversion failed");
                     appendLog("Could not convert the design: " + rootCause(e.getCause()));
                 } finally {
+                    resetDeadConnection();
                     if (staged != null) {
                         try {
                             Files.deleteIfExists(staged);
@@ -433,6 +436,17 @@ public class RocketPyPanel extends JPanel {
                 }
             }
         }.execute();
+    }
+
+    /** A timed-out request terminates its sidecar, so make reconnect available immediately. */
+    private void resetDeadConnection() {
+        if (client != null && !client.isRunning()) {
+            client = null;
+            connectButton.setText("Connect to RocketPy");
+            convertButton.setEnabled(false);
+            flyButton.setEnabled(false);
+            resultsPanel.setClient(null);
+        }
     }
 
     private void showConversion(JsonObject result) {

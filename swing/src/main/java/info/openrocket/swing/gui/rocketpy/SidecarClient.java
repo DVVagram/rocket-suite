@@ -118,10 +118,12 @@ public class SidecarClient implements AutoCloseable {
         } catch (IOException e) {
             log.accept("sidecar stream closed: " + e.getMessage());
         } finally {
-            int exit = process != null && !process.isAlive() ? process.exitValue() : -1;
-            deadReason = "sidecar stopped (exit code " + exit + ")";
-            log.accept(deadReason);
-            failPending(deadReason);
+            if (deadReason == null) {
+                int exit = process != null && !process.isAlive() ? process.exitValue() : -1;
+                deadReason = "sidecar stopped (exit code " + exit + ")";
+                log.accept(deadReason);
+                failPending(deadReason);
+            }
         }
     }
 
@@ -209,8 +211,15 @@ public class SidecarClient implements AutoCloseable {
                 throw new SidecarException("Interrupted", "interrupted while waiting for the sidecar");
             }
             if (response == null) {
-                throw new SidecarException("Timeout",
-                        "the sidecar did not answer '" + method + "' within " + timeout.toSeconds() + " s");
+                String reason = "the sidecar did not answer '" + method + "' within "
+                        + timeout.toSeconds() + " s; the sidecar was stopped";
+                deadReason = reason;
+                failPending(reason);
+                Process timedOut = process;
+                if (timedOut != null && timedOut.isAlive()) {
+                    timedOut.destroyForcibly();
+                }
+                throw new SidecarException("Timeout", reason);
             }
             if (!response.getBoolean("ok", false)) {
                 JsonObject error = response.getJsonObject("error");

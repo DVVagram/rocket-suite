@@ -26,7 +26,7 @@ def test_matching_java_offsets_replace_serializer_positions():
     fins = settings["trapezoidal_fins"]
     assert [fins[key]["position"] for key in ("0", "1")] == [0.31, 0.62]
     assert all(
-        fins[key]["position_source"] == "OpenRocket FinSet.getAxialOffset()"
+        fins[key]["position_source"] == "OpenRocket FinSet.getAxialOffset(ABSOLUTE)"
         for key in ("0", "1")
     )
     assert not report["warnings"]

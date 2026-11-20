@@ -259,11 +259,11 @@ def _apply_java_fin_offsets(settings: dict, offsets: list[dict] | None, report: 
 
         for fin, position in zip(ordered_fins, positions):
             fin["position"] = position
-            fin["position_source"] = "OpenRocket FinSet.getAxialOffset()"
+            fin["position_source"] = "OpenRocket FinSet.getAxialOffset(ABSOLUTE)"
         if ordered_fins:
             report["approximations"].append(
                 f"Axial offsets for {fin_type} fin sets come from OpenRocket's "
-                "FinSet.getAxialOffset(), in metres."
+                "FinSet.getAxialOffset(ABSOLUTE), in metres from the rocket nose."
             )
 
 

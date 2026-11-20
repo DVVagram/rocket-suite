@@ -21,6 +21,7 @@ import info.openrocket.core.rocketcomponent.FinSet;
 import info.openrocket.core.rocketcomponent.FlightConfiguration;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.rocketcomponent.TrapezoidFinSet;
+import info.openrocket.core.rocketcomponent.position.AxialMethod;
 
 /**
  * Exports the open design to a temporary {@code .ork} file so the flight engine
@@ -82,7 +83,7 @@ public final class DocumentExport {
             JsonObjectBuilder entry = Json.createObjectBuilder()
                     .add("type", type)
                     .add("name", fin.getName())
-                    .add("axial_offset_m", fin.getAxialOffset());
+                    .add("axial_offset_m", fin.getAxialOffset(AxialMethod.ABSOLUTE));
             offsets.add(entry);
         }
         return offsets.build();

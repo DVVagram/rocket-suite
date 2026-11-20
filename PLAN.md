@@ -236,3 +236,17 @@ Cleared on branch `desktop-fork`. Kept out of git but on disk: `.integration-src
 The converter's OpenRocket 23.09 jar lives in `.integration-src/RocketSerializer/`
 on this machine; `vendor/openrocket/` is the git-ignored place for it in a fresh
 checkout (see `sidecar/README.md`).
+
+## 6. Runtime regression fixes
+
+The live OpenRocket bridge now exports each supported fin set's absolute axial
+position in rocket coordinates (`getAxialOffset(AxialMethod.ABSOLUTE)`). The
+no-argument getter is the stored parent-relative value and can place fins at an
+incorrect station in RocketPy. The Java integration flight test now supplies
+these offsets, exercising the same path as the RocketPy tab.
+
+A sidecar request timeout now terminates the Python process and makes the panel's
+connect button available again. This prevents a timed-out flight from leaving a
+high-memory Python process running in the background. A Java regression test
+covers the timeout lifecycle; the Windows and macOS package workflows rebuild
+their installers from each pushed `desktop-fork` commit.

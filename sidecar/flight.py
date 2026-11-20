@@ -132,7 +132,7 @@ def _nose(rocket, values: dict, report: dict) -> None:
 def _fins(rocket, parameters: dict, report: dict) -> None:
     trapezoidal = parameters.get("trapezoidal_fins") or {}
     for fin in trapezoidal.values():
-        if fin.get("position_source") != "OpenRocket FinSet.getAxialOffset()":
+        if fin.get("position_source") != "OpenRocket FinSet.getAxialOffset(ABSOLUTE)":
             report["warnings"].append(
                 "Fin set " + str(fin.get("name", "?")) + " still uses RocketSerializer's axial "
                 "position, which may be inaccurate for staged designs."

@@ -95,6 +95,31 @@ public class SidecarClientTest {
     }
 
     @Test
+    public void timedOutRequestStopsTheSidecarProcess() throws Exception {
+        Path python = python().orElseThrow();
+        Path script = Files.createTempFile("rocketsuite-timeout-sidecar-", ".py");
+        Files.writeString(script, "import json, sys, time\n"
+                + "print(json.dumps({'event':'ready'}), flush=True)\n"
+                + "sys.stdin.readline()\n"
+                + "time.sleep(300)\n");
+        try (SidecarClient client = new SidecarClient(python, script, line -> { })) {
+            client.start();
+            SidecarClient.SidecarException error = assertThrows(SidecarClient.SidecarException.class,
+                    () -> client.request("hang", Json.createObjectBuilder().build(), Duration.ofMillis(300)));
+            assertEquals("Timeout", error.getType());
+            for (int i = 0; i < 50 && client.processForTesting().isAlive(); i++) {
+                Thread.sleep(100);
+            }
+            assertTrue(!client.isRunning(), "a timed-out sidecar must be stopped to release memory");
+            SidecarClient.SidecarException unavailable = assertThrows(SidecarClient.SidecarException.class,
+                    client::health);
+            assertEquals("SidecarUnavailable", unavailable.getType());
+        } finally {
+            Files.deleteIfExists(script);
+        }
+    }
+
+    @Test
     public void locatedScriptExists() {
         assumeProvisioned();
         assertTrue(Files.isRegularFile(script()), "resolved sidecar script must exist: " + script());

@@ -178,6 +178,7 @@ public class DesignConversionTest {
                     .add("ork", staged.toString())
                     .add("java_home", System.getProperty("java.home"))
                     .add("configuration", DocumentExport.selectedConfigurationId(document))
+                    .add("fin_offsets", DocumentExport.finAxialOffsets(document))
                     .build(), Duration.ofSeconds(240));
 
             JsonObject flown = client.request("fly", Json.createObjectBuilder()
