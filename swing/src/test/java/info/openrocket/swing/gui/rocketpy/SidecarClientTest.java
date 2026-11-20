@@ -120,6 +120,24 @@ public class SidecarClientTest {
     }
 
     @Test
+    public void closingClientStopsItsChildProcess() throws Exception {
+        Path python = python().orElseThrow();
+        Path script = Files.createTempFile("rocketsuite-close-sidecar-", ".py");
+        Files.writeString(script, "import time\ntime.sleep(300)\n");
+        SidecarClient client = new SidecarClient(python, script, line -> { });
+        try {
+            client.start();
+            Process child = client.processForTesting();
+            client.close();
+            assertTrue(child.waitFor(5, java.util.concurrent.TimeUnit.SECONDS),
+                    "closing the RocketPy panel must stop its Python process");
+        } finally {
+            client.close();
+            Files.deleteIfExists(script);
+        }
+    }
+
+    @Test
     public void locatedScriptExists() {
         assumeProvisioned();
         assertTrue(Files.isRegularFile(script()), "resolved sidecar script must exist: " + script());

@@ -56,11 +56,14 @@ public class RocketPyPanel extends JPanel {
     private final JButton flyButton = new JButton("Fly");
     private final JTextArea logArea = new JTextArea();
     private final RocketPyResultsPanel resultsPanel = new RocketPyResultsPanel(this::appendLog);
+    private final Object lifecycleLock = new Object();
 
     private record FlightRun(JsonObject flight, JsonObject plots) {
     }
 
     private SidecarClient client;
+    private volatile SidecarClient pendingClient;
+    private volatile boolean shuttingDown;
     private JsonObject lastConversion;
     private JsonObject lastFlight;
     private JsonObject previousFlight;
@@ -152,7 +155,13 @@ public class RocketPyPanel extends JPanel {
                 Path script = SidecarClient.findScript().orElseThrow(() -> new IllegalStateException(
                         "sidecar/rocketpy_sidecar.py not found. Set ROCKETSUITE_SIDECAR."));
                 SidecarClient created = new SidecarClient(python, script, this::publish);
-                created.start();
+                synchronized (lifecycleLock) {
+                    if (shuttingDown) {
+                        throw new IllegalStateException("the RocketPy panel is closing");
+                    }
+                    pendingClient = created;
+                    created.start();
+                }
                 return new Connection(created, created.health());
             }
 
@@ -166,6 +175,11 @@ public class RocketPyPanel extends JPanel {
                 connectButton.setEnabled(true);
                 try {
                     Connection connection = get();
+                    pendingClient = null;
+                    if (shuttingDown) {
+                        connection.client().close();
+                        return;
+                    }
                     client = connection.client();
                     JsonObject health = connection.health();
                     setStatus("Connected · RocketPy " + health.getString("rocketpy", "?")
@@ -178,6 +192,11 @@ public class RocketPyPanel extends JPanel {
                     Thread.currentThread().interrupt();
                     setStatus("Not connected");
                 } catch (ExecutionException e) {
+                    SidecarClient starting = pendingClient;
+                    pendingClient = null;
+                    if (starting != null) {
+                        starting.close();
+                    }
                     client = null;
                     setStatus("Not connected");
                     appendLog("Could not start the RocketPy sidecar: " + rootCause(e.getCause()));
@@ -196,6 +215,29 @@ public class RocketPyPanel extends JPanel {
         flyButton.setEnabled(false);
         resultsPanel.setClient(null);
         setStatus("Not connected");
+    }
+
+    /** Stop both an established sidecar and one whose health check is still running. */
+    public void shutdown() {
+        SidecarClient active;
+        SidecarClient starting;
+        synchronized (lifecycleLock) {
+            shuttingDown = true;
+            active = client;
+            starting = pendingClient;
+            client = null;
+            pendingClient = null;
+        }
+        if (active != null) {
+            active.close();
+        }
+        if (starting != null && starting != active) {
+            starting.close();
+        }
+        connectButton.setText("Connect to RocketPy");
+        convertButton.setEnabled(false);
+        flyButton.setEnabled(false);
+        resultsPanel.setClient(null);
     }
 
     /** The last RocketPy flight result, or null if the design has not been flown. */

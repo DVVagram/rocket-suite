@@ -254,6 +254,8 @@ public class SidecarClient implements AutoCloseable {
     @Override
     public void close() {
         if (process != null) {
+            deadReason = "closed";
+            failPending(deadReason);
             process.destroy();
             try {
                 if (!process.waitFor(3, TimeUnit.SECONDS)) {
@@ -263,7 +265,6 @@ public class SidecarClient implements AutoCloseable {
                 Thread.currentThread().interrupt();
                 process.destroyForcibly();
             } finally {
-                deadReason = "closed";
                 log.accept("sidecar stopped");
             }
         }

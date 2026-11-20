@@ -1875,6 +1875,7 @@ public class BasicFrame extends JFrame {
 
 		// Rocket has been saved or discarded
 		log.debug("Disposing window");
+		rocketPyPanel.shutdown();
 		BasicFrame.this.dispose();
 
 		ComponentConfigDialog.disposeDialog();
