@@ -11,7 +11,7 @@ appJar = root & "\app\swing-24.12-all.jar"
 ' Recover from a sidecar orphaned by an older frozen or closed app instance.
 On Error Resume Next
 shell.Run "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File """ & _
-    root & "\cleanup-stale-sidecars.ps1"" -InstallRoot """ & root & """", 0, True
+    root & "\cleanup-stale-sidecars.ps1"" -InstallRoot """ & root & """", 0, False
 Err.Clear
 On Error GoTo 0
 

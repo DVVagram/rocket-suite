@@ -10,27 +10,31 @@ $sidecar = Join-Path $InstallRoot "app\sidecar\rocketpy_sidecar.py"
 $cleanup = Join-Path $InstallRoot "cleanup-stale-sidecars.ps1"
 $token = [Guid]::NewGuid().ToString("N")
 $stub = Join-Path $env:TEMP "rocketsuite-orphan-$token.py"
-$spawner = Join-Path $env:TEMP "rocketsuite-spawner-$token.ps1"
 $pidFile = Join-Path $env:TEMP "rocketsuite-orphan-$token.pid"
 $orphanId = $null
 
 try {
-    Set-Content -LiteralPath $stub -Value "import time; time.sleep(300)" -Encoding ascii
-    @'
-$child = Start-Process -FilePath $env:ROCKETSUITE_TEST_PYTHON `
-    -ArgumentList @("`"$env:ROCKETSUITE_TEST_STUB`"", "`"$env:ROCKETSUITE_TEST_SIDECAR`"") `
-    -PassThru -WindowStyle Hidden
-Set-Content -LiteralPath $env:ROCKETSUITE_TEST_PIDFILE -Value $child.Id -Encoding ascii
-'@ | Set-Content -LiteralPath $spawner -Encoding ascii
+    $stubSource = 'import os, time; open(os.environ["ROCKETSUITE_TEST_PIDFILE"], "w").write(str(os.getpid())); time.sleep(300)'
+    Set-Content -LiteralPath $stub -Value $stubSource -Encoding ascii
 
     $env:ROCKETSUITE_TEST_PYTHON = $python
     $env:ROCKETSUITE_TEST_STUB = $stub
     $env:ROCKETSUITE_TEST_SIDECAR = $sidecar
     $env:ROCKETSUITE_TEST_PIDFILE = $pidFile
-    $spawn = Start-Process -FilePath "powershell.exe" `
-        -ArgumentList @("-NoLogo", "-NoProfile", "-NonInteractive", "-File", "`"$spawner`"") `
-        -PassThru -Wait -WindowStyle Hidden
-    if ($spawn.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $pidFile)) {
+    $spawnInfo = [Diagnostics.ProcessStartInfo]::new()
+    $spawnInfo.FileName = $env:ComSpec
+    $spawnInfo.Arguments = '/d /c start "" /b "{0}" "{1}" "{2}"' -f $python, $stub, $sidecar
+    $spawnInfo.CreateNoWindow = $true
+    $spawnInfo.UseShellExecute = $false
+    $spawn = [Diagnostics.Process]::Start($spawnInfo)
+    if (-not $spawn.WaitForExit(10000)) {
+        $spawn.Kill()
+        throw "timed out creating an orphaned sidecar test process"
+    }
+    for ($attempt = 0; $attempt -lt 100 -and -not (Test-Path -LiteralPath $pidFile); $attempt++) {
+        Start-Sleep -Milliseconds 100
+    }
+    if (-not (Test-Path -LiteralPath $pidFile)) {
         throw "could not create the orphaned sidecar test process"
     }
 
@@ -39,10 +43,16 @@ Set-Content -LiteralPath $env:ROCKETSUITE_TEST_PIDFILE -Value $child.Id -Encodin
         throw "the orphan test process exited before cleanup ran"
     }
 
-    $cleanupRun = Start-Process -FilePath "powershell.exe" `
-        -ArgumentList @("-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-            "-File", "`"$cleanup`"", "-InstallRoot", "`"$InstallRoot`"") `
-        -PassThru -Wait -WindowStyle Hidden
+    $cleanupInfo = [Diagnostics.ProcessStartInfo]::new()
+    $cleanupInfo.FileName = "powershell.exe"
+    $cleanupInfo.Arguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -InstallRoot "{1}"' -f $cleanup, $InstallRoot
+    $cleanupInfo.CreateNoWindow = $true
+    $cleanupInfo.UseShellExecute = $false
+    $cleanupRun = [Diagnostics.Process]::Start($cleanupInfo)
+    if (-not $cleanupRun.WaitForExit(15000)) {
+        $cleanupRun.Kill()
+        throw "stale sidecar cleanup did not finish within 15 seconds"
+    }
     if ($cleanupRun.ExitCode -ne 0) {
         throw "stale sidecar cleanup returned $($cleanupRun.ExitCode)"
     }
@@ -58,7 +68,7 @@ Set-Content -LiteralPath $env:ROCKETSUITE_TEST_PIDFILE -Value $child.Id -Encodin
     if ($orphanId) {
         Stop-Process -Id $orphanId -Force -ErrorAction SilentlyContinue
     }
-    Remove-Item -LiteralPath $stub, $spawner, $pidFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $stub, $pidFile -Force -ErrorAction SilentlyContinue
     Remove-Item Env:\ROCKETSUITE_TEST_PYTHON -ErrorAction SilentlyContinue
     Remove-Item Env:\ROCKETSUITE_TEST_STUB -ErrorAction SilentlyContinue
     Remove-Item Env:\ROCKETSUITE_TEST_SIDECAR -ErrorAction SilentlyContinue
