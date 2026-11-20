@@ -21,5 +21,8 @@ if not exist "%RS%app\swing-24.12-all.jar" (
     exit /b 1
 )
 
+rem Remove only orphaned Rocket Suite sidecars from a previous run.
+powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%RS%cleanup-stale-sidecars.ps1" -InstallRoot "%RS%" >nul 2>&1
+
 start "" "%RS%runtime\jre\bin\javaw.exe" -cp "%RS%app\swing-24.12-all.jar" info.openrocket.swing.startup.OpenRocket
 endlocal

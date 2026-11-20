@@ -54,6 +54,7 @@ public class RocketPyPanel extends JPanel {
     private final JButton connectButton = new JButton("Connect to RocketPy");
     private final JButton convertButton = new JButton("Convert design");
     private final JButton flyButton = new JButton("Fly");
+    private final JButton windowButton = new JButton("Open in separate window");
     private final JTextArea logArea = new JTextArea();
     private final RocketPyResultsPanel resultsPanel = new RocketPyResultsPanel(this::appendLog);
     private final Object lifecycleLock = new Object();
@@ -88,6 +89,7 @@ public class RocketPyPanel extends JPanel {
         buttons.add(convertButton);
         buttons.add(flyButton);
         buttons.add(connectButton);
+        buttons.add(windowButton);
         statusBar.add(buttons, BorderLayout.EAST);
 
         JPanel header = new JPanel(new BorderLayout(0, 6));
@@ -113,6 +115,7 @@ public class RocketPyPanel extends JPanel {
         connectButton.addActionListener(e -> toggleConnection());
         convertButton.addActionListener(e -> convertDesign());
         flyButton.addActionListener(e -> flyDesign());
+        windowButton.setToolTipText("Show RocketPy in a separate window");
 
         javax.swing.JSplitPane split = new javax.swing.JSplitPane(
                 javax.swing.JSplitPane.VERTICAL_SPLIT, new JScrollPane(logArea), resultsPanel);
@@ -130,6 +133,21 @@ public class RocketPyPanel extends JPanel {
 
     public OpenRocketDocument getDocument() {
         return document;
+    }
+
+    /** Configure the button that moves this panel between the tab and its own window. */
+    public void setWindowAction(String label, Runnable action) {
+        windowButton.setText(label);
+        windowButton.setToolTipText(label);
+        for (java.awt.event.ActionListener listener : windowButton.getActionListeners()) {
+            windowButton.removeActionListener(listener);
+        }
+        windowButton.addActionListener(e -> action.run());
+    }
+
+    /** Exposed for the tab reparenting regression test. */
+    public JButton getWindowButton() {
+        return windowButton;
     }
 
     /** True while a sidecar process is running for this panel. */

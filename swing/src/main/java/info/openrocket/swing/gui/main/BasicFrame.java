@@ -1,6 +1,8 @@
 package info.openrocket.swing.gui.main;
 
+import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
@@ -25,10 +27,12 @@ import java.util.concurrent.ExecutionException;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.BorderFactory;
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -176,6 +180,7 @@ public class BasicFrame extends JFrame {
 	private final FlightConfigurationPanel flightConfigurationPanel;
 	private final RocketPyPanel rocketPyPanel;
 	private final SimulationPanel simulationPanel;
+	private JFrame rocketPyWindow;
 
 	public static BasicFrame lastFrameInstance = null;		// Latest BasicFrame that was created
 	private static boolean quitCalled = false;				// Keeps track whether the quit action has been called
@@ -224,6 +229,7 @@ public class BasicFrame extends JFrame {
 		designPanel = new DesignPanel(this, document, tree);
 		flightConfigurationPanel = new FlightConfigurationPanel(this, document);
 		rocketPyPanel = new RocketPyPanel(document);
+		rocketPyPanel.setWindowAction("Open in separate window", this::toggleRocketPyWindow);
 		tabbedPane = new JTabbedPane();
 		tabbedPane.addTab(trans.get("BasicFrame.tab.Rocketdesign"), null, designPanel);
 		tabbedPane.addTab(trans.get("BasicFrame.tab.Flightconfig"), null, flightConfigurationPanel);
@@ -1875,6 +1881,7 @@ public class BasicFrame extends JFrame {
 
 		// Rocket has been saved or discarded
 		log.debug("Disposing window");
+		returnRocketPyToTab(false);
 		rocketPyPanel.shutdown();
 		BasicFrame.this.dispose();
 
@@ -1892,6 +1899,68 @@ public class BasicFrame extends JFrame {
 			}
 		}
 		return true;
+	}
+
+	private void toggleRocketPyWindow() {
+		if (rocketPyWindow == null) {
+			openRocketPyWindow();
+		} else {
+			rocketPyWindow.setState(JFrame.NORMAL);
+			rocketPyWindow.toFront();
+			rocketPyWindow.requestFocus();
+		}
+	}
+
+	private void openRocketPyWindow() {
+		if (rocketPyWindow != null) {
+			toggleRocketPyWindow();
+			return;
+		}
+
+		JPanel placeholder = new JPanel(new BorderLayout(8, 8));
+		JPanel message = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 12));
+		message.add(new JLabel("RocketPy is open in a separate window."));
+		JButton showWindow = new JButton("Show RocketPy window");
+		showWindow.addActionListener(e -> toggleRocketPyWindow());
+		message.add(showWindow);
+		placeholder.add(message, BorderLayout.CENTER);
+
+		String rocketName = rocket.getName();
+		rocketPyWindow = new JFrame("RocketPy — " + (rocketName == null ? "Rocket" : rocketName));
+		rocketPyWindow.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		rocketPyWindow.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				returnRocketPyToTab(true);
+			}
+		});
+		tabbedPane.setComponentAt(3, placeholder);
+		rocketPyPanel.setWindowAction("Return to RocketPy tab", () -> returnRocketPyToTab(true));
+		rocketPyWindow.setContentPane(rocketPyPanel);
+		rocketPyWindow.setSize(1100, 780);
+		rocketPyWindow.setMinimumSize(new Dimension(800, 560));
+		rocketPyWindow.setLocationRelativeTo(this);
+		GUIUtil.setWindowIcons(rocketPyWindow);
+		rocketPyWindow.setVisible(isShowing());
+	}
+
+	private void returnRocketPyToTab(boolean selectTab) {
+		if (rocketPyWindow == null) {
+			return;
+		}
+		JFrame detached = rocketPyWindow;
+		rocketPyWindow = null;
+		detached.getContentPane().remove(rocketPyPanel);
+		tabbedPane.setComponentAt(3, rocketPyPanel);
+		rocketPyPanel.setWindowAction("Open in separate window", this::toggleRocketPyWindow);
+		detached.dispose();
+		if (selectTab) {
+			tabbedPane.setSelectedComponent(rocketPyPanel);
+		}
+	}
+
+	boolean isRocketPyWindowOpen() {
+		return rocketPyWindow != null;
 	}
 
 	public void exportDecalAction() {

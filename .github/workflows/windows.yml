@@ -80,6 +80,10 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\make-installer.ps1
           Get-Item dist\RocketSuite-Setup.exe | Select-Object Name,Length
 
+      - name: Verify stale Python sidecar recovery
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\tests\test-stale-sidecar-cleanup.ps1 -InstallRoot (Join-Path $PWD "dist\RocketSuite")
+
       - name: Smoke test the packaged application
         shell: pwsh
         run: |

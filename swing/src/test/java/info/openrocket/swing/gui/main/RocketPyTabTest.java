@@ -1,7 +1,9 @@
 package info.openrocket.swing.gui.main;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Component;
@@ -86,6 +88,33 @@ public class RocketPyTabTest {
             assertTrue(tabs.getComponentAt(0) instanceof DesignPanel,
                     "OpenRocket's design tab must be untouched");
         } finally {
+            frame.dispose();
+        }
+    }
+
+    @Test
+    public void rocketPyPanelMovesIntoASeparateWindowAndReturnsToItsTab() {
+        OpenRocketDocument document = OpenRocketDocumentFactory.createNewRocket();
+        BasicFrame frame = new BasicFrame(document);
+        RocketPyPanel panel = null;
+        try {
+            JTabbedPane tabs = findTabbedPane(frame);
+            panel = (RocketPyPanel) tabs.getComponentAt(3);
+
+            panel.getWindowButton().doClick();
+            assertTrue(frame.isRocketPyWindowOpen(), "the RocketPy tab button should open its own window");
+            assertFalse(tabs.getComponentAt(3) == panel,
+                    "the same RocketPy panel should be moved out of the tab while detached");
+            assertEquals("Return to RocketPy tab", panel.getWindowButton().getText());
+
+            panel.getWindowButton().doClick();
+            assertFalse(frame.isRocketPyWindowOpen());
+            assertSame(panel, tabs.getComponentAt(3), "returning should restore the same live panel");
+            assertEquals("Open in separate window", panel.getWindowButton().getText());
+        } finally {
+            if (frame.isRocketPyWindowOpen() && panel != null) {
+                panel.getWindowButton().doClick();
+            }
             frame.dispose();
         }
     }

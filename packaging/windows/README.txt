@@ -12,6 +12,7 @@ design inputs cross between them, one way.
 Running it
 ----------
 Double-click RocketSuite.vbs. This starts the app without opening a command window.
+It also clears an orphaned Rocket Suite Python sidecar left by an earlier crash.
 
 Nothing needs to be installed: the Java runtime and Python with the RocketPy
 stack are inside this folder. Nothing is written outside it except the usual
